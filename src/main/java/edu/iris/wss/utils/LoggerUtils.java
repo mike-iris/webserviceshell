@@ -175,6 +175,9 @@ public class LoggerUtils {
             logger.error("Error, unexpected loggingMethod configuration value: "
                     + loggingType + "  msg: " + makeUsageLogString(wsuRabbit));
         }
+
+		// todo - fully implement
+		WssSingleton.wssLogInterface.logOutTwo(makeUsageLogString(wsuRabbit));
 	}
 
     public static String makeFullAppName(RequestInfo ri, String appSuffix) {

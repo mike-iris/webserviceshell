@@ -54,7 +54,7 @@ import org.apache.log4j.Logger;
 public class AppConfigurator {
 	public static final Logger logger = Logger.getLogger(AppConfigurator.class);
 
-  public static final String wssVersion = "2.4.12";
+  public static final String wssVersion = "2.5.1-SNAPSHOT";
 
 	public static final String wssDigestRealmnameSignature = "wss.digest.realmname";
 
@@ -134,7 +134,7 @@ public class AppConfigurator {
     // global configuration parameter names
     public static enum GL_CFGS { appName, version, corsEnabled,
         rootServiceDoc, loggingMethod, loggingConfig, sigkillDelay,
-        jndiUrl, singletonClassName};
+        jndiUrl, singletonClassName, wssLogInterfaceClassName};
 
     // endpoint configuration parameter names
     public static enum EP_CFGS { formatTypes, handlerTimeout,

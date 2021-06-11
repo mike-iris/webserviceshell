@@ -25,6 +25,7 @@ import edu.iris.dmc.logging.rabbitmq.IrisRabbitPublisherFactory;
 import org.apache.log4j.Logger;
 
 import edu.iris.wss.provider.IrisSingleton;
+import edu.iris.wss.provider.WssLogInterface;
 import java.io.UnsupportedEncodingException;
 import java.util.Properties;
 
@@ -52,6 +53,7 @@ public class WssSingleton {
 	public IrisSingleton singleton = null;
 
     public static IrisRabbitAsyncPublisher rabbitAsyncPublisher = null;
+    public static WssLogInterface wssLogInterface = null;
 
     public static final String HEADER_START_IDENTIFIER = "HTTP_HEADERS_START";
     public static byte[] HEADER_START_IDENTIFIER_BYTES;
@@ -174,6 +176,9 @@ public class WssSingleton {
             String fileName = appConfig.getLoggingConfig().toString();
             setupRabbitLogging(fileName);
         }
+
+        // todo - do full setup like rabbit
+        setupWssStats("something");
 	}
 
     private ParamConfigurator getParamConfig(AppConfigurator appCfg,
@@ -241,4 +246,46 @@ public class WssSingleton {
             }
         }
     }
+
+    private void setupWssStats(String something) {
+        System.out.println("***** ***** instantiating ssLogInterface");
+
+        wssLogInterface = getWssLogInterfaceInstance("edu.iris.wss.endpoints.IrisUsageStatsClient");
+    }
+
+
+    public static WssLogInterface getWssLogInterfaceInstance(String className) {
+        Class<?> wssLogInterfaceClass = null;
+        WssLogInterface is = null;
+        try {
+            wssLogInterfaceClass = Class.forName(className);
+            System.out.println("--- Create new instance of class: " + wssLogInterfaceClass.getCanonicalName());
+            logger.info("--- Create new instance of class: " + wssLogInterfaceClass.getCanonicalName());
+            is = (WssLogInterface) wssLogInterfaceClass.newInstance();
+            System.out.println("--- End create new instance of class: " + wssLogInterfaceClass.getCanonicalName());
+            logger.info("--- End create of new instance of class: " + wssLogInterfaceClass.getCanonicalName());
+        } catch (ClassNotFoundException ex) {
+            String msg = "getWssLogInterfaceInstance could not find "
+                    + AppConfigurator.GL_CFGS.wssLogInterfaceClassName + ": " + className;
+            logger.fatal(msg);
+            throw new RuntimeException(msg, ex);
+        } catch (InstantiationException ex) {
+            String msg = "getWssLogInterfaceInstance could not instantiate "
+                    + AppConfigurator.GL_CFGS.wssLogInterfaceClassName + ": " + className;
+            logger.fatal(msg);
+            throw new RuntimeException(msg, ex);
+        } catch (IllegalAccessException ex) {
+            String msg = "getWssLogInterfaceInstance illegal access while instantiating "
+                    + AppConfigurator.GL_CFGS.wssLogInterfaceClassName + ": " + className;
+            logger.fatal(msg);
+            throw new RuntimeException(msg, ex);
+        } catch (ClassCastException ex) {
+            String msg = "getWssLogInterfaceInstance ClassCastException while instantiating "
+                    + AppConfigurator.EP_CFGS.endpointClassName + ": " + className;
+            logger.fatal(msg);
+            throw new RuntimeException(msg, ex);
+        }
+        return is;
+    }
+
 }

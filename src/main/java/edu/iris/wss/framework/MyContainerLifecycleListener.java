@@ -115,6 +115,9 @@ public class MyContainerLifecycleListener implements ContainerLifecycleListener 
             }
         }
 
+        // todo - fully implement
+        WssSingleton.wssLogInterface.logOut1();
+
         sw.destroyIrisSingleton();
     }
 }
