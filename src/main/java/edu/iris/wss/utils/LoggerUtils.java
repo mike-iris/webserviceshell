@@ -20,8 +20,14 @@
 package edu.iris.wss.utils;
 
 import edu.iris.dmc.logging.usage.WSUsageItem;
+import edu.iris.usage.Extra;
+import edu.iris.usage.UsageItem;
+import edu.iris.usage.UsageItem.UsageItemBuilder;
+import edu.iris.usage.http.UsageService;
 import edu.iris.wss.framework.AppConfigurator;
 import java.text.SimpleDateFormat;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.util.Date;
 
 import org.apache.log4j.Level;
@@ -37,6 +43,12 @@ public class LoggerUtils {
 
 	public static final Logger logger = Logger.getLogger(LoggerUtils.class);
 	public static final Logger usageLogger = Logger.getLogger("UsageLogger");
+	UsageService usageService;
+
+	public static void logUsageMessage(RequestInfo ri, String appSuffix, Long dataSize, Long processTime,
+									   String errorType, Integer httpStatusCode, String extraText, Level level) {
+		logUsageMessage(ri, null, appSuffix, dataSize, processTime, errorType, httpStatusCode, extraText, level);
+	}
 
 	/**
      * Create and send usage message. The items with nulls are for
@@ -48,7 +60,7 @@ public class LoggerUtils {
      * For values set to null, expecting the logging system to leave those
      * respective fields out of the delivered message
      */
-    public static void logUsageMessage(RequestInfo ri, String appSuffix,
+    public static void logUsageMessage(RequestInfo ri, UsageItem usageItem, String appSuffix,
             Long dataSize, Long processTime,
             String errorType, Integer httpStatusCode, String extraText,
             Level level) {
@@ -65,7 +77,32 @@ public class LoggerUtils {
         // name available (for JMS)
         String olderJMSApplciationName = makeFullAppName(ri, appSuffix);
 
-        wsuRabbit.setHost(           WebUtils.getHostname());
+		if (usageItem == null) {
+			usageItem = from(ri, wsuRabbit);
+		}
+
+		ZonedDateTime time = ZonedDateTime.now(ZoneId.of("UTC"));
+		usageItem.setCompleted(time.plusNanos(processTime));
+
+		usageItem.setInterface(ri.appConfig.getAppName());
+		usageItem.setIpaddress(WebUtils.getClientIp(ri.request));
+		usageItem.setRequestTime(time);
+		usageItem.setUserident(WebUtils.getAuthenticatedUsername(ri.requestHeaders));
+
+		Extra extra = usageItem.getExtra();
+		if (extra == null) {
+			extra = new Extra();
+			usageItem.setExtra(extra);
+		}
+		extra.setBackendServer(WebUtils.getHostname());
+		extra.setMessage(extraText);
+		// extra.setReferer(referer);
+		// extra.setRequestUrl(requestUrl);
+		extra.setUserAgent(WebUtils.getUserAgent(ri.request));
+		extra.setReturnCode(httpStatusCode);
+		// extra.setServiceVersion(serviceVersion);
+
+		wsuRabbit.setHost(           WebUtils.getHostname());
         wsuRabbit.setAccessDate(     new Date());
         wsuRabbit.setClientName(     WebUtils.getClientName(ri.request));
         wsuRabbit.setClientIp(       WebUtils.getClientIp(ri.request));
@@ -84,7 +121,7 @@ public class LoggerUtils {
         wsuRabbit.setUserName(       WebUtils.getAuthenticatedUsername(ri.requestHeaders));
         wsuRabbit.setExtra(          extraText);
 
-		logWssUsageMessage(level, wsuRabbit, ri, olderJMSApplciationName);
+		logWssUsageMessage(level, usageItem, wsuRabbit, ri, olderJMSApplciationName);
 	}
 
     /**
@@ -96,11 +133,35 @@ public class LoggerUtils {
      * appSuffix ignored
      *
      */
-	public static void logWfstatMessage(RequestInfo ri,
+	public static void logWfstatMessage(RequestInfo ri, UsageItem usageItem,
 			String appSuffix, Long dataSize, Long processTime,
 			String errorType, Integer httpStatusCode, String extraText,
 			String network, String station, String location, String channel, String quality,
 			Date startTime, Date endTime) {
+
+		if (usageItem == null) {
+			usageItem = UsageItem.builder().build();
+		}
+
+		ZonedDateTime time = ZonedDateTime.now(ZoneId.of("UTC"));
+		usageItem.setCompleted(time.plusNanos(processTime));
+
+		usageItem.setInterface(ri.appConfig.getAppName());
+		usageItem.setIpaddress(WebUtils.getClientIp(ri.request));
+		usageItem.setRequestTime(time);
+		usageItem.setUserident(WebUtils.getAuthenticatedUsername(ri.requestHeaders));
+
+		Extra extra = usageItem.getExtra();
+		if (extra == null) {
+			extra = new Extra();
+			usageItem.setExtra(extra);
+		}
+		extra.setBackendServer(WebUtils.getHostname());
+		extra.setMessage(extraText);
+		// extra.setReferer(referer);
+		// extra.setRequestUrl(requestUrl);
+		extra.setUserAgent(WebUtils.getUserAgent(ri.request));
+		extra.setReturnCode(httpStatusCode);
 
         WSUsageItem wsuRabbit = new WSUsageItem();
 
@@ -133,10 +194,10 @@ public class LoggerUtils {
         wsuRabbit.setUserName(       WebUtils.getAuthenticatedUsername(ri.requestHeaders));
         wsuRabbit.setExtra(          extraText);
 
-		logWssUsageMessage(Level.INFO, wsuRabbit, ri, olderJMSApplciationName);
+		logWssUsageMessage(Level.INFO, usageItem, wsuRabbit, ri, olderJMSApplciationName);
 	}
 
-	private static void logWssUsageMessage(Level level, WSUsageItem wsuRabbit,
+	private static void logWssUsageMessage(Level level, UsageItem usageItem, WSUsageItem wsuRabbit,
           RequestInfo ri, String olderJMSApplciationName) {
 		AppConfigurator.LoggingMethod loggingType = ri.appConfig.getLoggingType();
 
@@ -158,8 +219,10 @@ public class LoggerUtils {
 
 		} else if (loggingType == LoggingMethod.RABBIT_ASYNC) {
             try {
+				System.out.println("***** usageService status code: " + WssSingleton.usageService.report(usageItem));
                 WssSingleton.rabbitAsyncPublisher.publish(wsuRabbit);
             } catch (Exception ex) {
+				ex.printStackTrace();
                 logger.error("Error while publishing via RABBIT_ASYNC ex: " + ex
                       + "  rabbitAsyncPublisher: " + WssSingleton.rabbitAsyncPublisher
                       + "  msg: " + ex.getMessage()
@@ -169,12 +232,38 @@ public class LoggerUtils {
                       + "  ErrorType: " + wsuRabbit.getErrorType());
 
 //                logger.error("Error while publishing via RABBIT_ASYNC stack:", ex);
+				ex.printStackTrace();
             }
 
 		} else {
             logger.error("Error, unexpected loggingMethod configuration value: "
                     + loggingType + "  msg: " + makeUsageLogString(wsuRabbit));
         }
+	}
+
+	static UsageItem from(RequestInfo ri, WSUsageItem wsuRabbit) {
+
+		ZonedDateTime time = ZonedDateTime.now(ZoneId.of("UTC"));
+		UsageItemBuilder usageItemBuilder = UsageItem.builder().address(WebUtils.getClientIp(ri.request))
+				._interface(wsuRabbit.getApplication()).ipaddress(wsuRabbit.getClientIp());
+		if (wsuRabbit.getDuration() != null) {
+			usageItemBuilder.completed(time.plusNanos(wsuRabbit.getDuration()));
+		}
+		UsageItem usageItem = usageItemBuilder.requestTime(time).build();
+
+		Extra extra = usageItem.getExtra();
+		if (extra == null) {
+			extra = new Extra();
+			usageItem.setExtra(extra);
+		}
+		extra.setBackendServer(WebUtils.getHostname());
+		extra.setMessage(wsuRabbit.getExtra());
+		// extra.setReferer(referer);
+		// extra.setRequestUrl(requestUrl);
+		extra.setUserAgent(wsuRabbit.getUserAgent());
+		extra.setReturnCode(wsuRabbit.getHttpCode());
+
+		return usageItem;
 	}
 
     public static String makeFullAppName(RequestInfo ri, String appSuffix) {

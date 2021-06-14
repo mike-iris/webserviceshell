@@ -103,7 +103,8 @@ public class LoggingEndpoint extends IrisProcessor {
             } else if (value.equals("wfstat")) {
                 Util.logWfstatMessage(ri, null, 66L, 77L, null,
                       FdsnStatus.Status.OK, "wfstat  extra-two",
-                      "ab", "cd", "ef", "gh", "ij", new Date(), new Date(),
+                      "ab", "cd", "ef", "gh", "ij",
+                      value, new Date(), new Date(),
                       "123duration");
 
             } else if (value.equals("error")) {

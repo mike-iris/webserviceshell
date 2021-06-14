@@ -123,4 +123,15 @@ public class WssTest  {
         // lightweight test, just check status, the return should be a doc page
         assertEquals(200, response.getStatus());
     }
+
+    @Test
+    public void testGet_userService() throws Exception {
+
+        Client c = ClientBuilder.newClient();
+        WebTarget webTarget = c.target(BASE_URI);
+        Response response = webTarget.path("").request().get();
+
+        // lightweight test, just check status, the return should be a doc page
+        assertEquals(200, response.getStatus());
+    }
 }

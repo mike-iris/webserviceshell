@@ -21,8 +21,10 @@ package edu.iris.wss.framework;
 
 import edu.iris.dmc.logging.rabbitmq.IrisRabbitAsyncPublisher;
 import edu.iris.dmc.logging.rabbitmq.IrisRabbitPublisherFactory;
+import edu.iris.usage.http.UsageService;
 
 import org.apache.log4j.Logger;
+import org.springframework.web.client.RestTemplate;
 
 import edu.iris.wss.provider.IrisSingleton;
 import java.io.UnsupportedEncodingException;
@@ -73,6 +75,7 @@ public class WssSingleton {
     private Boolean isAppinitFileLoaded = false;
 
     private String configFileBase = "notDefinedYet";
+    public static UsageService usageService;
 
 	public WssSingleton(){
         // Create this object only once, it is used on every request.
@@ -152,7 +155,6 @@ public class WssSingleton {
     	}
 
         paramConfig = getParamConfig(appConfig, configFileBase);
-
         // the singleton name is read in by appConfig, but instantiated here.
         // Null is ok, it indicates the application does not need a singleton
         if (appConfig.getSingletonClassName() == null) {
@@ -169,12 +171,35 @@ public class WssSingleton {
             }
         }
 
+        String uri = null;
+        try {
+            uri = appConfig.getUsageSubmitServiceURL();
+            usageService = new UsageService(new RestTemplate(), uri);
+        }  catch (Exception ex) {
+            String msg = "----------- Error getUsageSubmitServiceURL, uri: " + uri
+                    + "  or usageService: " + usageService + "  ex: "
+                    + ex + "  ** check config file: "
+                    + AppConfigurator.getAtemptingConfigFileNamePrefix() + "-service.cfg";
+            System.out.println(msg);
+            logger.error(msg);
+
+            // even with error, try to load params so paramConfig is
+            // not null
+            paramConfig = getParamConfig(appConfig, configFileBase);
+
+            throw new Exception(msg, ex);
+        }
+
         if (appConfig.getLoggingType().equals(
               AppConfigurator.LoggingMethod.RABBIT_ASYNC)) {
             String fileName = appConfig.getLoggingConfig().toString();
             setupRabbitLogging(fileName);
         }
 	}
+
+    public UsageService getUsageService() {
+	    return this.usageService;
+    }
 
     private ParamConfigurator getParamConfig(AppConfigurator appCfg,
           String cfgFileBase) throws Exception {

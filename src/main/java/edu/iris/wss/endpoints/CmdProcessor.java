@@ -33,6 +33,9 @@ import org.apache.log4j.Logger;
 
 import com.Ostermiller.util.CircularByteBuffer;
 
+import edu.iris.usage.UsageItem;
+import edu.iris.usage.http.UsageService;
+import edu.iris.usage.util.UsageIO;
 import edu.iris.wss.framework.AppConfigurator;
 import edu.iris.wss.framework.FdsnStatus.Status;
 import edu.iris.wss.framework.ParameterTranslator;
@@ -80,6 +83,7 @@ public class CmdProcessor extends IrisProcessor {
 
     private String epName = null;
 
+    //UsageService us;
     RequestInfo ri;
 
 	public CmdProcessor() {
@@ -638,7 +642,7 @@ public class CmdProcessor extends IrisProcessor {
 			stopProcess(process, ri.appConfig.getSigkillDelay(), output);
 		} finally {
             long processingTime = (new Date()).getTime() - startTime.getTime();
-
+            UsageItem usageItem = null;
             // set some arbitrary exit values to help determine if the test
             // for process exit code is failing versus the process itself
             int handlerExitVal = -99999;
@@ -678,15 +682,22 @@ public class CmdProcessor extends IrisProcessor {
 
             if (ri.appConfig.isUsageLogEnabled(epName)) {
                 try {
+                    String usageMessage = se.getOutputString();
+                    usageItem = UsageIO.read(usageMessage);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+
+                try {
                     if (isKillingProcess.get()) {
                         Util.logUsageMessage(ri, "_KillitInWriteMiniSeed",
                                 totalBytesTransmitted, processingTime,
                                 "killit was called, possible timeout waiting"
                                 + " for data after intial data flow started",
-                                Status.INTERNAL_SERVER_ERROR, epName);
+                                Status.INTERNAL_SERVER_ERROR, usageItem, epName);
                     } else {
                         Util.logUsageMessage(ri, "_summary", totalBytesTransmitted,
-                                processingTime, null, Status.OK, epName);
+                                processingTime, null, Status.OK, usageItem, epName);
                     }
                 } catch (Exception ex) {
                     logger.error("Error logging MiniSEED response summary , ex: "
@@ -697,7 +708,7 @@ public class CmdProcessor extends IrisProcessor {
                     for (String key : logHash.keySet()) {
                         RecordMetaData rmd = logHash.get(key);
                         Util.logWfstatMessage(ri, null, rmd.getSize(), processingTime, null,
-                                Status.OK, epName, LogKey.getNetwork(key).trim(),
+                                Status.OK, usageItem, epName, LogKey.getNetwork(key).trim(),
                                 LogKey.getStation(key).trim(), LogKey.getLocation(key).trim(),
                                 LogKey.getChannel(key).trim(), LogKey.getQuality(key).trim(),
                                 Date.from(rmd.getStart().toInstant()),
@@ -802,6 +813,8 @@ public class CmdProcessor extends IrisProcessor {
         long timeNonBlockingStart = 0L;
         long timeNonBlockingTotal = 0L;
 
+        UsageItem usageItem=null;
+
 		try {
 			while (true) {
 				bytesRead = is.read(buffer, 0, buffer.length);
@@ -815,6 +828,13 @@ public class CmdProcessor extends IrisProcessor {
 				rt.reschedule();
                 timeNonBlockingTotal += System.currentTimeMillis()
                         - timeNonBlockingStart;
+
+                try {
+                    String usageMessage = se.getOutputString();
+                    usageItem = UsageIO.read(usageMessage);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
 			}
 		}
 
@@ -874,10 +894,10 @@ public class CmdProcessor extends IrisProcessor {
                               totalBytesTransmitted, processingTime,
                               "killit was called, possible timeout waiting for"
                               + " data after intial data flow started",
-                              Status.INTERNAL_SERVER_ERROR, epName);
+                              Status.INTERNAL_SERVER_ERROR, usageItem, epName);
                     } else {
                         Util.logUsageMessage(ri, null, totalBytesTransmitted,
-                                processingTime, null, Status.OK, epName);
+                                processingTime, null, Status.OK, usageItem, epName);
                     }
                 } catch (Exception ex) {
                     logger.error("Error logging writeNormal response, ex: "

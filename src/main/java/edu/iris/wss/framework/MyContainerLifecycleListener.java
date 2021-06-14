@@ -27,6 +27,9 @@ import org.glassfish.hk2.api.ServiceLocator;
 import org.glassfish.jersey.internal.inject.Injections;
 import org.glassfish.jersey.server.spi.Container;
 import org.glassfish.jersey.server.spi.ContainerLifecycleListener;
+import org.springframework.web.client.RestTemplate;
+
+import edu.iris.usage.http.UsageService;
 
 /**
  *
@@ -39,6 +42,7 @@ public class MyContainerLifecycleListener implements ContainerLifecycleListener 
     @Context ServletContext context;
 
     protected WssSingleton sw;
+    protected UsageService us;
 
     @Override
     public void onStartup(Container cntnr) {
@@ -82,9 +86,15 @@ public class MyContainerLifecycleListener implements ContainerLifecycleListener 
         DynamicConfiguration dc = Injections.getConfiguration(serviceLocator);
         Injections.addBinding(
             Injections.newBinder(sw).to(WssSingleton.class), dc);
+
+        us = new UsageService(new RestTemplate(), sw.appConfig.getUsageSubmitServiceURL());
+        Injections.addBinding(
+                Injections.newBinder(us).to(UsageService.class), dc);
+
         dc.commit();
 
         context.setAttribute("wssSinlgton", sw);
+        context.setAttribute("usageService", us);
 
         LOGGER.info("onStartup, context path: " + context.getContextPath()
               + "  configBase: " + sw.getConfigFileBase());

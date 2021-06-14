@@ -54,7 +54,7 @@ import org.apache.log4j.Logger;
 public class AppConfigurator {
 	public static final Logger logger = Logger.getLogger(AppConfigurator.class);
 
-  public static final String wssVersion = "2.4.12";
+  public static final String wssVersion = "2.5.1-SNAPSHOT";
 
 	public static final String wssDigestRealmnameSignature = "wss.digest.realmname";
 
@@ -76,6 +76,7 @@ public class AppConfigurator {
 
 	private Boolean isLoaded = false;
 	private Boolean isValid = false;
+	private static String attemptingConfigFileNamePrefix = "config_file_name_prefix_not_set";
 
     public AppConfigurator() throws Exception {
         init();
@@ -88,6 +89,7 @@ public class AppConfigurator {
         globals.put(GL_CFGS.version.toString(), "notversioned");
         globals.put(GL_CFGS.corsEnabled.toString(), true);
         globals.put(GL_CFGS.rootServiceDoc.toString(), null);
+        globals.put(GL_CFGS.usageSubmitServiceURL.toString(), "usageSubmitServiceURLnotset");
         globals.put(GL_CFGS.loggingMethod.toString(), LoggingMethod.LOG4J);
         globals.put(GL_CFGS.loggingConfig.toString(),
               "logging_config_not_specified");
@@ -134,7 +136,7 @@ public class AppConfigurator {
     // global configuration parameter names
     public static enum GL_CFGS { appName, version, corsEnabled,
         rootServiceDoc, loggingMethod, loggingConfig, sigkillDelay,
-        jndiUrl, singletonClassName};
+        jndiUrl, singletonClassName, usageSubmitServiceURL};
 
     // endpoint configuration parameter names
     public static enum EP_CFGS { formatTypes, handlerTimeout,
@@ -167,6 +169,10 @@ public class AppConfigurator {
 	public static enum LoggingMethod {
 		LOG4J, RABBIT_ASYNC
 	};
+
+	public static String getAtemptingConfigFileNamePrefix() {
+        return attemptingConfigFileNamePrefix;
+    }
 
     /**
      * Convert input string from config file into List of validated CIDR
@@ -299,6 +305,10 @@ public class AppConfigurator {
 
     public String getLoggingConfig() {
         return (String) globals.get(GL_CFGS.loggingConfig.toString());
+    }
+
+    public String getUsageSubmitServiceURL() {
+        return (String) globals.get(GL_CFGS.usageSubmitServiceURL.toString());
     }
 
     public int getSigkillDelay() {
@@ -631,8 +641,8 @@ public class AppConfigurator {
                 wssConfigDir += "/";
             }
 
-            String configFileName = wssConfigDir + configBase
-                + cfgNameSuffix;
+            attemptingConfigFileNamePrefix = wssConfigDir + configBase;
+            String configFileName = attemptingConfigFileNamePrefix + cfgNameSuffix;
             logger.info("Attempting to load application configuration file from: "
                 + configFileName);
 
@@ -716,6 +726,7 @@ public class AppConfigurator {
         loadGlobalParameter(inputProps, globals, GL_CFGS.loggingConfig);
         loadGlobalParameter(inputProps, globals, GL_CFGS.sigkillDelay);
         loadGlobalParameter(inputProps, globals, GL_CFGS.singletonClassName);
+        loadGlobalParameter(inputProps, globals, GL_CFGS.usageSubmitServiceURL);
 
         Enumeration keys = inputProps.propertyNames();
         while (keys.hasMoreElements()) {
@@ -1226,6 +1237,7 @@ public class AppConfigurator {
         keyList.add(GL_CFGS.loggingConfig.toString());
         keyList.add(GL_CFGS.sigkillDelay.toString());
         keyList.add(GL_CFGS.singletonClassName.toString());
+        keyList.add(GL_CFGS.usageSubmitServiceURL.toString());
 
         for (String key: keyList) {
             Object value = globals.get(key) != null ? globals.get(key) : "null";
@@ -1314,6 +1326,7 @@ public class AppConfigurator {
         keyList.add(GL_CFGS.loggingConfig.toString());
         keyList.add(GL_CFGS.sigkillDelay.toString());
         keyList.add(GL_CFGS.singletonClassName.toString());
+        keyList.add(GL_CFGS.usageSubmitServiceURL.toString());
 
         for (String key: keyList) {
             Object value = globals.get(key) != null ? globals.get(key) : "null";

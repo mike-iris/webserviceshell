@@ -240,6 +240,7 @@ public class Service_ContentDisposition_PrecedenceTest  {
         sb.append("# If present, an instance of the singleton class will be created at application start").append("\n");
         sb.append("singletonClassName=edu.iris.wss.provider.TestSingleton").append("\n");
         sb.append("\n");
+        sb.append("usageSubmitServiceURL=http://wsbeta1.iris.washington.edu:8081/iriswsbeta/usage-stats/1/submit\n");
         sb.append("# LOG4J or JMS").append("\n");
         sb.append("loggingMethod=LOG4J").append("\n");
         sb.append("\n");
