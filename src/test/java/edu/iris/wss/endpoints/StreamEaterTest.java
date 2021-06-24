@@ -260,7 +260,6 @@ public class StreamEaterTest {
               "",
               "# If present, an instance of the singleton class will be created at application start",
               "singletonClassName=edu.iris.wss.framework.UnitTestSingleton",
-              "usageSubmitServiceURL=http://wsbeta1.iris.washington.edu:8081/iriswsbeta/usage-stats/1/submit",
               "",
               "# ----------------  endpoints",
               "",

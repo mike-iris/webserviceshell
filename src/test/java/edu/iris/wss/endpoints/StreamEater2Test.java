@@ -77,6 +77,12 @@ public class StreamEater2Test {
         String handlerName = Util.createCfgFileName("wsstest", ".py");
         File newFile = new File(handlerName);
         newFile.setExecutable(true);
+        handlerName = newFile.getAbsolutePath();
+
+        String newFN = FileCreaterHelper.createFileInWssFolder(SERVICE_CONTEXT,
+                AppConfigurator.SERVICE_CFG_NAME_SUFFIX,
+                createServiceCfgFile(ENDPOINT_NAME, handlerName),
+                false);
 
         GrizzlyContainerHelper.setUpServer(BASE_URI, this.getClass().getName(),
               SERVICE_CONTEXT);
@@ -87,7 +93,7 @@ public class StreamEater2Test {
         GrizzlyContainerHelper.tearDownServer(this.getClass().getName());
     }
 
-////    @Test
+    @Test
     public void test_0() throws Exception {
         Client c = ClientBuilder.newClient();
 
@@ -115,7 +121,7 @@ public class StreamEater2Test {
         assertEquals(500, response.getStatus());
     }
 
-////    @Test
+    @Test
     public void test_2() throws Exception {
         Client c = ClientBuilder.newClient();
 
@@ -127,5 +133,45 @@ public class StreamEater2Test {
         Response response = webTarget.request().get();
 
         assertEquals(200, response.getStatus());
+    }
+
+    private static String createServiceCfgFile(String endpointName,
+                                               String handlerName) {
+        String s = String.join("\n",
+                "# ---------------- globals",
+                "",
+                "appName=" + THIS_CLASS_NAME,
+                "version=0.1",
+                "",
+                "corsEnabled=false",
+                "",
+                "# LOG4J or RABBIT_ASYNC or USAGE_STATS or USAGE_STATS_AND_RABBIT_ASYNC",
+                "loggingMethod=LOG4J",
+                "",
+                "# If present, an instance of the singleton class will be created at application start",
+                "singletonClassName=edu.iris.wss.framework.UnitTestSingleton",
+                "",
+                "# ----------------  endpoints",
+                "",
+                endpointName + ".endpointClassName=edu.iris.wss.endpoints.CmdProcessor",
+                endpointName + ".handlerProgram=" + handlerName,
+                endpointName + ".handlerTimeout=200",
+                endpointName + ".handlerWorkingDirectory=/tmp",
+                endpointName + ".usageLog",
+                endpointName + ".postEnabled=true",
+                endpointName + ".logMiniseedExtents = false",
+                endpointName + ".use404For204=false",
+                endpointName + ".formatTypes = \\",
+                "    text: text/plain,\\",
+                "    json: application/json, \\",
+                "    xml: application/xml, \\",
+                "    zip: application/zip, \\",
+                "    miniseed: application/vnd.fdsn.mseed, \\",
+                "    geocsv: text/plain",
+                endpointName + ".formatDispositions=zip: attachment; filename=\"data.zip\"",
+                ""
+        );
+
+        return s;
     }
 }
