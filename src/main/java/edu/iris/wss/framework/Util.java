@@ -21,10 +21,10 @@ package edu.iris.wss.framework;
 
 import static edu.iris.wss.framework.WssSingleton.ACCESS_CONTROL_ALLOW_ORIGIN;
 import static edu.iris.wss.framework.WssSingleton.CONTENT_DISPOSITION;
-import edu.iris.usage.UsageItem;
 import edu.iris.wss.utils.LoggerUtils;
 import java.io.File;
 import java.text.SimpleDateFormat;
+import java.time.ZonedDateTime;
 import java.util.Date;
 import java.util.GregorianCalendar;
 import java.util.HashMap;
@@ -319,47 +319,25 @@ public class Util {
 	}
 
     public static void logWfstatMessage(RequestInfo ri, String appSuffix,
-          Long dataSize, Long processTime,
-          String errorType, FdsnStatus.Status httpStatus, String usageMessage, String extraText,
-          String network, String station, String location, String channel,
-          String quality, Date startTime, Date endTime, String duration) {
-
-        // set usageItem null because todo
-        LoggerUtils.logWfstatMessage(ri, null, appSuffix, dataSize, processTime,
-              errorType, httpStatus.getStatusCode(), extraText,
-              network, station, location, channel, quality,
-              startTime, endTime);
-    }
-
-    public static void logWfstatMessage(RequestInfo ri, String appSuffix,
             Long dataSize, Long processTime,
-            String errorType, FdsnStatus.Status httpStatus, UsageItem usageItem, String extraText,
+            String errorType, FdsnStatus.Status httpStatus, String extraText,
             String network, String station, String location, String channel,
             String quality, Date startTime, Date endTime, String duration) {
 
-        LoggerUtils.logWfstatMessage(ri, usageItem, appSuffix, dataSize, processTime,
+        LoggerUtils.logWfstatMessage(ri, appSuffix, dataSize, processTime,
                 errorType, httpStatus.getStatusCode(), extraText,
                 network, station, location, channel, quality,
                 startTime, endTime);
     }
 
-	public static void logUsageMessage(RequestInfo ri, String appSuffix,
-			Long dataSize, Long processTime,
-			String errorType, FdsnStatus.Status httpStatus, String extraText) {
-
-        // set usageItem null because todo
-        LoggerUtils.logUsageMessage(ri, null, appSuffix, dataSize,
-              processTime, errorType, httpStatus.getStatusCode(), extraText,
-              Level.INFO);
-	}
-
     public static void logUsageMessage(RequestInfo ri, String appSuffix,
                Long dataSize, Long processTime,
-               String errorType, FdsnStatus.Status httpStatus, UsageItem usageItem, String extraText) {
+               ZonedDateTime writeStartTime, ZonedDateTime writeEndTime,
+               String errorType, FdsnStatus.Status httpStatus, String usageMessage, String extraText) {
 
-        // set usageItem null because todo
-        LoggerUtils.logUsageMessage(ri, usageItem, appSuffix, dataSize,
-                processTime, errorType, httpStatus.getStatusCode(), extraText,
+        LoggerUtils.logUsageMessage(ri, usageMessage, appSuffix, dataSize,
+                processTime, writeStartTime, writeEndTime,
+                errorType, httpStatus.getStatusCode(), extraText,
                 Level.INFO);
     }
 }

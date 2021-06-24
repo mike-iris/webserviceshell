@@ -31,7 +31,6 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.net.InetAddress;
 import java.net.URL;
 import java.net.UnknownHostException;
 import java.time.Duration;
@@ -54,7 +53,7 @@ import org.apache.log4j.Logger;
 public class AppConfigurator {
 	public static final Logger logger = Logger.getLogger(AppConfigurator.class);
 
-  public static final String wssVersion = "2.5.1-SNAPSHOT";
+  public static final String wssVersion = "2.5.2-SNAPSHOT";
 
 	public static final String wssDigestRealmnameSignature = "wss.digest.realmname";
 
@@ -167,7 +166,7 @@ public class AppConfigurator {
     private final Endpoint ep_defaults = new Endpoint();
 
 	public static enum LoggingMethod {
-		LOG4J, RABBIT_ASYNC
+		LOG4J, RABBIT_ASYNC, USAGE_STATS, USAGE_STATS_AND_RABBIT_ASYNC
 	};
 
 	public static String getAtemptingConfigFileNamePrefix() {
@@ -862,7 +861,9 @@ public class AppConfigurator {
                         throw new Exception("Unrecognized value for paramater: " + key
                               + "  value found: " + newVal
                               + "  should be one of " + LoggingMethod.LOG4J.toString()
-                              + " or " + LoggingMethod.RABBIT_ASYNC.toString(), ex);
+                              + " or " + LoggingMethod.RABBIT_ASYNC.toString()
+                              + " or " + LoggingMethod.USAGE_STATS.toString()
+                              + " or " + LoggingMethod.USAGE_STATS_AND_RABBIT_ASYNC.toString(), ex);
                     }
                 } else if(currentVal instanceof URL) {
                     try {

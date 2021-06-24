@@ -33,7 +33,7 @@ public class StreamEater implements Runnable  {
 	boolean done = false;
 
     // accumulate stderr content here
-	static final int OUTPUT_SIZE_LIMIT = 20000;
+	static final int OUTPUT_SIZE_LIMIT = 95000;
 	StringBuilder output = new StringBuilder();
 
 	IOException ioExceptionWhileReading = null;
@@ -75,9 +75,13 @@ public class StreamEater implements Runnable  {
 		// addition information indicating stderr processing may not
         // be working as expected.
 		if( ioExceptionWhileReading != null )  {
-            output.append(" -- ")
-                  .append("Exception while reading stderr, excep: ")
-                  .append(ioExceptionWhileReading.getMessage());
+		    if (ioExceptionWhileReading.getMessage().contains("Stream closed")) {
+                LOGGER.warn("Catching \"Stream closed\" and not appending addition info to output content.");
+            } else {
+                output.append(" -- ")
+                        .append("Exception while reading stderr, excep: ")
+                        .append(ioExceptionWhileReading.getMessage());
+            }
 		}
 
 		return output.toString();

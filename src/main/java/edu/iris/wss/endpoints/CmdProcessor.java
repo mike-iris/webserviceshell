@@ -26,6 +26,9 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.lang.reflect.Field;
 import java.text.ParseException;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.Date;
 import java.util.HashMap;
 
@@ -34,8 +37,6 @@ import org.apache.log4j.Logger;
 import com.Ostermiller.util.CircularByteBuffer;
 
 import edu.iris.usage.UsageItem;
-import edu.iris.usage.http.UsageService;
-import edu.iris.usage.util.UsageIO;
 import edu.iris.wss.framework.AppConfigurator;
 import edu.iris.wss.framework.FdsnStatus.Status;
 import edu.iris.wss.framework.ParameterTranslator;
@@ -67,7 +68,7 @@ public class CmdProcessor extends IrisProcessor {
 
 	private static final int MONITOR_PROCESS_PAUSE_TIME_MSEC = 50;
 
-	private Date startTime;
+    private ZonedDateTime writeStartTime;
 
 	private Process process;
 
@@ -92,7 +93,7 @@ public class CmdProcessor extends IrisProcessor {
     @Override
 	public IrisProcessingResult getProcessingResults(RequestInfo ri,
           String wssMediaType) {
-		startTime = new Date();
+        writeStartTime = ZonedDateTime.now(ZoneId.of("UTC"));
 
         this.ri = ri;
         epName = ri.getEndpointNameForThisRequest();
@@ -641,9 +642,10 @@ public class CmdProcessor extends IrisProcessor {
 			logger.error("Miniseed parse error or process record exception: ", e);
 			stopProcess(process, ri.appConfig.getSigkillDelay(), output);
 		} finally {
-            long processingTime = (new Date()).getTime() - startTime.getTime();
-            UsageItem usageItem = null;
-            // set some arbitrary exit values to help determine if the test
+            long processingTime = ChronoUnit.MILLIS.between(
+                    writeStartTime, ZonedDateTime.now(ZoneId.of("UTC")));
+
+                    // set some arbitrary exit values to help determine if the test
             // for process exit code is failing versus the process itself
             int handlerExitVal = -99999;
             try {
@@ -681,23 +683,19 @@ public class CmdProcessor extends IrisProcessor {
             ri.statsKeeper.logShippedBytes(totalBytesTransmitted);
 
             if (ri.appConfig.isUsageLogEnabled(epName)) {
-                try {
-                    String usageMessage = se.getOutputString();
-                    usageItem = UsageIO.read(usageMessage);
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
-
+                ZonedDateTime writeEndTime = ZonedDateTime.now(ZoneId.of("UTC"));
+                String usageMessage = se.getOutputString();
                 try {
                     if (isKillingProcess.get()) {
                         Util.logUsageMessage(ri, "_KillitInWriteMiniSeed",
-                                totalBytesTransmitted, processingTime,
+                                totalBytesTransmitted, processingTime, writeStartTime, writeEndTime,
                                 "killit was called, possible timeout waiting"
                                 + " for data after intial data flow started",
-                                Status.INTERNAL_SERVER_ERROR, usageItem, epName);
+                                Status.INTERNAL_SERVER_ERROR, usageMessage, epName);
                     } else {
                         Util.logUsageMessage(ri, "_summary", totalBytesTransmitted,
-                                processingTime, null, Status.OK, usageItem, epName);
+                                processingTime, writeStartTime, writeEndTime,
+                                null, Status.OK, usageMessage, epName);
                     }
                 } catch (Exception ex) {
                     logger.error("Error logging MiniSEED response summary , ex: "
@@ -708,7 +706,7 @@ public class CmdProcessor extends IrisProcessor {
                     for (String key : logHash.keySet()) {
                         RecordMetaData rmd = logHash.get(key);
                         Util.logWfstatMessage(ri, null, rmd.getSize(), processingTime, null,
-                                Status.OK, usageItem, epName, LogKey.getNetwork(key).trim(),
+                                Status.OK, epName, LogKey.getNetwork(key).trim(),
                                 LogKey.getStation(key).trim(), LogKey.getLocation(key).trim(),
                                 LogKey.getChannel(key).trim(), LogKey.getQuality(key).trim(),
                                 Date.from(rmd.getStart().toInstant()),
@@ -815,28 +813,21 @@ public class CmdProcessor extends IrisProcessor {
 
         UsageItem usageItem=null;
 
-		try {
-			while (true) {
-				bytesRead = is.read(buffer, 0, buffer.length);
+        try {
+            while (true) {
+                bytesRead = is.read(buffer, 0, buffer.length);
                 timeNonBlockingStart = System.currentTimeMillis();
-				if (bytesRead < 0) {
-					break;
-				}
-				totalBytesTransmitted += bytesRead;
-				output.write(buffer, 0, bytesRead);
-				output.flush();
-				rt.reschedule();
+                if (bytesRead < 0) {
+                    break;
+                }
+                totalBytesTransmitted += bytesRead;
+                output.write(buffer, 0, bytesRead);
+                output.flush();
+                rt.reschedule();
                 timeNonBlockingTotal += System.currentTimeMillis()
                         - timeNonBlockingStart;
-
-                try {
-                    String usageMessage = se.getOutputString();
-                    usageItem = UsageIO.read(usageMessage);
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
-			}
-		}
+            }
+        }
 
 		catch (IOException ioe) {
 			logger.error("Got IOE (probable client disconnect): ", ioe);
@@ -845,7 +836,8 @@ public class CmdProcessor extends IrisProcessor {
 			logger.error("Read buffer in writeNormal exception: ", e);
 			stopProcess(process, ri.appConfig.getSigkillDelay(), output);
 		} finally {
-            long processingTime = (new Date()).getTime() - startTime.getTime();
+            long processingTime = ChronoUnit.MILLIS.between(
+                    writeStartTime, ZonedDateTime.now(ZoneId.of("UTC")));
 
             // set some arbitrary exit values to help determine if the test
             // for process exit code is failing versus the process itself
@@ -888,16 +880,20 @@ public class CmdProcessor extends IrisProcessor {
             ri.statsKeeper.logShippedBytes(totalBytesTransmitted);
 
             if (ri.appConfig.isUsageLogEnabled(epName)) {
+                ZonedDateTime writeEndTime = ZonedDateTime.now(ZoneId.of("UTC"));
+                String usageMessage = se.getOutputString();
                 try {
                     if (isKillingProcess.get()) {
                         Util.logUsageMessage(ri, "_KillitInWriteNormal",
                               totalBytesTransmitted, processingTime,
+                              writeStartTime, writeEndTime,
                               "killit was called, possible timeout waiting for"
                               + " data after intial data flow started",
-                              Status.INTERNAL_SERVER_ERROR, usageItem, epName);
+                              Status.INTERNAL_SERVER_ERROR, usageMessage, epName);
                     } else {
                         Util.logUsageMessage(ri, null, totalBytesTransmitted,
-                                processingTime, null, Status.OK, usageItem, epName);
+                                processingTime, writeStartTime, writeEndTime,
+                                null, Status.OK, usageMessage, epName);
                     }
                 } catch (Exception ex) {
                     logger.error("Error logging writeNormal response, ex: "

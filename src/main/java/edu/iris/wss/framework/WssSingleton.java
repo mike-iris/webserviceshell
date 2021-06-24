@@ -28,6 +28,7 @@ import org.springframework.web.client.RestTemplate;
 
 import edu.iris.wss.provider.IrisSingleton;
 import java.io.UnsupportedEncodingException;
+import java.net.URI;
 import java.util.Properties;
 
 /**
@@ -61,6 +62,10 @@ public class WssSingleton {
     public static byte[] HEADER_END_IDENTIFIER_BYTES;
     public static final int HEADER_MAX_ACCEPTED_BYTE_COUNT = 1024  * 16;
 
+    public static final String USAGESTATS_JSON_START_IDENTIFIER = "USAGESTATS_JSON_START";
+    public static final int USAGESTATS_JSON_START_IDENTIFIER_LENGTH = USAGESTATS_JSON_START_IDENTIFIER.length();
+    public static final String USAGESTATS_JSON_END_IDENTIFIER = "USAGESTATS_JSON_END";
+
     // These are headers used internally which may be set by configuration,
     // they may be overridden by incoming settings
     public final static String CONTENT_DISPOSITION = "Content-Disposition";
@@ -75,7 +80,7 @@ public class WssSingleton {
     private Boolean isAppinitFileLoaded = false;
 
     private String configFileBase = "notDefinedYet";
-    public static UsageService usageService;
+    public static UsageService usageSubmittalService;
 
 	public WssSingleton(){
         // Create this object only once, it is used on every request.
@@ -171,35 +176,20 @@ public class WssSingleton {
             }
         }
 
-        String uri = null;
-        try {
-            uri = appConfig.getUsageSubmitServiceURL();
-            usageService = new UsageService(new RestTemplate(), uri);
-        }  catch (Exception ex) {
-            String msg = "----------- Error getUsageSubmitServiceURL, uri: " + uri
-                    + "  or usageService: " + usageService + "  ex: "
-                    + ex + "  ** check config file: "
-                    + AppConfigurator.getAtemptingConfigFileNamePrefix() + "-service.cfg";
-            System.out.println(msg);
-            logger.error(msg);
-
-            // even with error, try to load params so paramConfig is
-            // not null
-            paramConfig = getParamConfig(appConfig, configFileBase);
-
-            throw new Exception(msg, ex);
-        }
-
-        if (appConfig.getLoggingType().equals(
-              AppConfigurator.LoggingMethod.RABBIT_ASYNC)) {
+        if (appConfig.getLoggingType().equals(AppConfigurator.LoggingMethod.RABBIT_ASYNC)
+                || appConfig.getLoggingType().equals(
+                        AppConfigurator.LoggingMethod.USAGE_STATS_AND_RABBIT_ASYNC)) {
             String fileName = appConfig.getLoggingConfig().toString();
             setupRabbitLogging(fileName);
         }
-	}
 
-    public UsageService getUsageService() {
-	    return this.usageService;
-    }
+        if (appConfig.getLoggingType().equals(AppConfigurator.LoggingMethod.USAGE_STATS)
+                || appConfig.getLoggingType().equals(
+                AppConfigurator.LoggingMethod.USAGE_STATS_AND_RABBIT_ASYNC)) {
+            String fileName = appConfig.getLoggingConfig().toString();
+            setupUsageStatsSubmitService(fileName);
+        }
+	}
 
     private ParamConfigurator getParamConfig(AppConfigurator appCfg,
           String cfgFileBase) throws Exception {
@@ -264,6 +254,36 @@ public class WssSingleton {
                 System.out.println(msg + ex);
                 logger.error(msg, ex);
             }
+        }
+    }
+
+    private void setupUsageStatsSubmitService(String rabbitCfgFile) {
+        if (usageSubmittalService != null) {
+            // should always be null if usageService is held as a static,
+            // this implies that more than one WssSingleton object is seeing
+            // this class variable. It should be refactored or there should
+            // be different classloaders used to isolate this class from another
+            String msg = "POSSIBLE ERROR, usageService object already"
+                    + " exists, null was expected for usageService,"
+                    + " usageService: "
+                    + usageSubmittalService;
+            System.out.println(msg);
+            logger.error(msg);
+        }
+
+        URI uri = null;
+        try {
+            // setup http client usage submittal service
+            uri = new URI(appConfig.getUsageSubmitServiceURL());
+            usageSubmittalService = new UsageService(new RestTemplate(), uri);
+            logger.info("usageService created");
+        }  catch (Exception ex) {
+            String msg = "----------- Error in usageSubmitServiceURL: " + uri
+                    + "  or usageService: " + usageSubmittalService + "  ex: "
+                    + ex + "  ** check config file: "
+                    + AppConfigurator.getAtemptingConfigFileNamePrefix() + "-service.cfg";
+            System.out.println(msg);
+            logger.error(msg);
         }
     }
 }

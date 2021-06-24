@@ -20,6 +20,8 @@
 package edu.iris.wss.framework;
 
 import java.text.SimpleDateFormat;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.util.Date;
 import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.Response;
@@ -106,7 +108,9 @@ public class ServiceShellException extends WebApplicationException {
             logger.error(exceptionMsg);
         }
 
-        LoggerUtils.logUsageMessage(ri, null, 0L, 0L, briefMsg,
+        ZonedDateTime writeEndTime = ZonedDateTime.now(ZoneId.of("UTC"));
+        LoggerUtils.logUsageMessage(ri, null, null, 0L, 0L,
+              writeEndTime,  writeEndTime, briefMsg,
               adjusted_status.getStatusCode(), ri.getEndpointNameForThisRequest(),
               Level.ERROR);
 

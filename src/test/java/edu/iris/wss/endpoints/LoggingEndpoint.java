@@ -27,6 +27,8 @@ import edu.iris.wss.provider.IrisProcessingResult;
 import edu.iris.wss.provider.IrisProcessor;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.ListIterator;
@@ -95,22 +97,24 @@ public class LoggingEndpoint extends IrisProcessor {
 
         if (mvm.containsKey("messageType")) {
             String value = mvm.get("messageType").get(0);
+            ZonedDateTime writeEndTime = ZonedDateTime.now(ZoneId.of("UTC"));
 
             if (value.equals("usage")) {
-                Util.logUsageMessage(ri, null, 44L, 55L, null,
-                      FdsnStatus.Status.OK, null);
+                Util.logUsageMessage(ri, null, 44L, 55L,
+                      writeEndTime, writeEndTime,null,
+                      FdsnStatus.Status.OK, null, null);
 
             } else if (value.equals("wfstat")) {
                 Util.logWfstatMessage(ri, null, 66L, 77L, null,
                       FdsnStatus.Status.OK, "wfstat  extra-two",
-                      "ab", "cd", "ef", "gh", "ij",
-                      value, new Date(), new Date(),
+                      "ab", "cd", "ef", "gh", "ij", new Date(), new Date(),
                       "123duration");
 
             } else if (value.equals("error")) {
                 Util.logUsageMessage(ri, "_killittype", 88L, 99L,
+                      writeEndTime, writeEndTime,
                       "example usage errortype set for kill after timeout",
-                      FdsnStatus.Status.BAD_REQUEST, ri.getEndpointNameForThisRequest());
+                      FdsnStatus.Status.BAD_REQUEST, null, ri.getEndpointNameForThisRequest());
 
             } else if (value.equals("error_with_exception")) {
                 Util.logAndThrowException(ri, FdsnStatus.Status.BAD_REQUEST,
