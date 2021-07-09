@@ -105,6 +105,9 @@ public class StreamEater2Test {
 
         assertEquals(200, response.getStatus());
         assertEquals("text/plain", response.getMediaType().toString());
+        System.out.println("************** eater2 length: " + response.getLength());
+        String responseMsg = response.readEntity(String.class);
+        System.out.println("************** eater2 responseMsg: " + responseMsg);
     }
 
     @Test

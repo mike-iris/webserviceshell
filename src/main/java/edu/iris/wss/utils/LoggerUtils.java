@@ -26,6 +26,7 @@ import edu.iris.usage.util.UsageIO;
 import edu.iris.wss.framework.AppConfigurator;
 
 import java.text.SimpleDateFormat;
+import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.Date;
 
@@ -44,38 +45,34 @@ public class LoggerUtils {
 	public static final Logger log4jUsageLogger = Logger.getLogger("UsageLogger");
 
     /**
-     * Create and send usage message. The items with nulls are for
-     * Miniseed channel information and are not needed here.
-     *
-     * The level passed in, e.g. ERROR for error messages and INFO for
-     * messages is used by log4j.
-     *
-     * For values set to null, expecting the logging system to leave those
-     * respective fields out of the delivered message
+     * Support clients that already have UsageItem object.
+     */
+
+    public static void logUsageMessage(RequestInfo ri, UsageItem usageItem, String appSuffix,
+                                       Long dataSize, Long processTime,
+                                       String errorType, Integer httpStatusCode, String extraText,
+                                       Level level) {
+
+        ZonedDateTime writeEndTime = ZonedDateTime.now(ZoneId.of("UTC"));;
+        logUsageMessage(ri, usageItem, appSuffix,
+                dataSize, processTime, null, writeEndTime,
+                errorType, httpStatusCode, extraText, level);
+    }
+
+    /**
+     * Build UsageItem from string, or create a new one
      */
     public static void logUsageMessage(RequestInfo ri, String usageMessage, String appSuffix,
-            Long dataSize, Long processTime, ZonedDateTime writeStartTime, ZonedDateTime writeEndTime,
-            String errorType, Integer httpStatusCode, String extraText,
-            Level level) {
+                                       Long dataSize, Long processTime, ZonedDateTime writeStartTime, ZonedDateTime writeEndTime,
+                                       String errorType, Integer httpStatusCode, String extraText,
+                                       Level level) {
 
-        WSUsageItem wsuRabbit = new WSUsageItem();
-
-        wsuRabbit.setMessagetype("usage");
-
-        // note: application is now a simple pass through, it no longer
-        //       appends a suffix, as in old code, e.g.
-        //       wui.setApplication(makeFullAppName(ri, appSuffix));
-        wsuRabbit.setApplication(    ri.appConfig.getAppName());
-        // however, until feature is not needed, make the old application
-        // name available (for JMS)
-        String olderJMSApplciationName = makeFullAppName(ri, appSuffix);
-
-		UsageItem usageItem = null;
+        UsageItem usageItem = null;
         String jsonSubStr = null;
         try {
             jsonSubStr = usageMessage.substring(
                     usageMessage.indexOf(WssSingleton.USAGESTATS_JSON_START_IDENTIFIER)
-                    + WssSingleton.USAGESTATS_JSON_START_IDENTIFIER_LENGTH,
+                            + WssSingleton.USAGESTATS_JSON_START_IDENTIFIER_LENGTH,
                     usageMessage.indexOf(WssSingleton.USAGESTATS_JSON_END_IDENTIFIER)
             );
             usageItem = UsageIO.read(jsonSubStr);
@@ -94,6 +91,120 @@ public class LoggerUtils {
                 usageItem = UsageItem.builder().build().withVersion(1.0);
             }
         }
+
+        // finish usageItem settings
+        logUsageMessage(ri, usageItem, appSuffix,
+                dataSize, processTime, writeStartTime, writeEndTime,
+                errorType, httpStatusCode, extraText, level);
+    }
+
+    /**
+     *
+     * Do WSS adjustments to UsageItem
+     *
+     * @param ri
+     * @param usageItem
+     * @param appSuffix
+     * @param dataSize
+     * @param processTime
+     * @param writeStartTime
+     * @param writeEndTime
+     * @param errorType
+     * @param httpStatusCode
+     * @param extraText
+     * @param level
+     */
+    public static void logUsageMessage(RequestInfo ri, UsageItem usageItem, String appSuffix,
+                                     Long dataSize, Long processTime, ZonedDateTime writeStartTime, ZonedDateTime writeEndTime,
+                                     String errorType, Integer httpStatusCode, String extraText,
+                                     Level level) {
+
+        updateUsageItem(ri, usageItem, appSuffix,
+                dataSize, processTime, writeStartTime, writeEndTime,
+                errorType, httpStatusCode, extraText,
+                level);
+
+        // pass through so rabbit object can be built and onto reporting
+        logUsageAndRabbit(ri, usageItem, appSuffix,
+                dataSize, processTime, writeStartTime, writeEndTime,
+                errorType, httpStatusCode, extraText,
+                level);
+    }
+
+    /**
+     *
+     */
+
+    public static void updateUsageItem(RequestInfo ri, UsageItem usageItem, String appSuffix,
+                                       Long dataSize, Long processTime, ZonedDateTime writeStartTime, ZonedDateTime writeEndTime,
+                                       String errorType, Integer httpStatusCode, String extraText,
+                                       Level level) {
+
+        if (null != usageItem) {
+            if (null != writeStartTime) {
+                usageItem.setRequestTime(writeStartTime);
+            }
+            if (null != writeEndTime) {
+                usageItem.setCompleted(writeEndTime);
+            }
+
+            usageItem.setAddress(WebUtils.getHostname());
+            usageItem.setInterface(ri.appConfig.getAppName());
+            usageItem.setIpaddress(WebUtils.getClientIp(ri.request));
+            usageItem.setUserident(WebUtils.getAuthenticatedUsername(ri.requestHeaders));
+
+            Extra extra = usageItem.getExtra();
+            if (extra == null) {
+                extra = new Extra();
+                usageItem.setExtra(extra);
+            }
+
+            if (null == extra.getBackendServer() || extra.getBackendServer().isEmpty()) {
+                extra.setBackendServer(WebUtils.getHostname());
+            }
+
+            if (null == extra.getMessage() || extra.getMessage().isEmpty()) {
+                extra.setMessage(extraText);
+            }
+
+            // todo ?
+            // extra.setReferer(referer);
+            // extra.setRequestUrl(requestUrl);
+            // extra.setServiceVersion(serviceVersion);
+
+            // todo - always replace?
+            extra.setUserAgent(WebUtils.getUserAgent(ri.request));
+            extra.setReturnCode(httpStatusCode);
+        }
+    }
+
+
+    /**
+     * Create and send usage message. The items with nulls are for
+     * Miniseed channel information and are not needed here.
+     *
+     * The level passed in, e.g. ERROR for error messages and INFO for
+     * messages is used by log4j.
+     *
+     * For values set to null, expecting the logging system to leave those
+     * respective fields out of the delivered message
+     */
+    public static void logUsageAndRabbit(RequestInfo ri, UsageItem usageItem, String appSuffix,
+            Long dataSize, Long processTime, ZonedDateTime writeStartTime, ZonedDateTime writeEndTime,
+            String errorType, Integer httpStatusCode, String extraText,
+            Level level) {
+
+        WSUsageItem wsuRabbit = new WSUsageItem();
+
+        wsuRabbit.setMessagetype("usage");
+
+        // note: application is now a simple pass through, it no longer
+        //       appends a suffix, as in old code, e.g.
+        //       wui.setApplication(makeFullAppName(ri, appSuffix));
+        wsuRabbit.setApplication(    ri.appConfig.getAppName());
+        // however, until feature is not needed, make the old application
+        // name available (for JMS)
+        String olderJMSApplciationName = makeFullAppName(ri, appSuffix);
 
 		if (null != usageItem) {
             usageItem.setRequestTime(writeStartTime);

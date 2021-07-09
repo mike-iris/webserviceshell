@@ -109,7 +109,9 @@ public class ServiceShellException extends WebApplicationException {
         }
 
         ZonedDateTime writeEndTime = ZonedDateTime.now(ZoneId.of("UTC"));
-        LoggerUtils.logUsageMessage(ri, null, null, 0L, 0L,
+        String dummyMessage = null; // for intellij auto match typing problem
+        LoggerUtils.logUsageMessage(ri, dummyMessage, dummyMessage,
+                0L, 0L,
               writeEndTime,  writeEndTime, briefMsg,
               adjusted_status.getStatusCode(), ri.getEndpointNameForThisRequest(),
               Level.ERROR);

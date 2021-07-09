@@ -21,6 +21,8 @@ package edu.iris.wss.framework;
 
 import static edu.iris.wss.framework.WssSingleton.ACCESS_CONTROL_ALLOW_ORIGIN;
 import static edu.iris.wss.framework.WssSingleton.CONTENT_DISPOSITION;
+
+import edu.iris.usage.UsageItem;
 import edu.iris.wss.utils.LoggerUtils;
 import java.io.File;
 import java.text.SimpleDateFormat;
@@ -335,9 +337,20 @@ public class Util {
                ZonedDateTime writeStartTime, ZonedDateTime writeEndTime,
                String errorType, FdsnStatus.Status httpStatus, String usageMessage, String extraText) {
 
-        LoggerUtils.logUsageMessage(ri, usageMessage, appSuffix, dataSize,
+        LoggerUtils.logUsageMessage(ri, usageMessage,
+                appSuffix, dataSize,
                 processTime, writeStartTime, writeEndTime,
                 errorType, httpStatus.getStatusCode(), extraText,
+                Level.INFO);
+    }
+
+    public static void logUsageMessage(RequestInfo ri, String appSuffix,
+                                       Long dataSize, Long processTime,
+                                       String errorType, FdsnStatus.Status httpStatus,
+                                       UsageItem usageItem, String extraText) {
+
+        LoggerUtils.logUsageMessage(ri, usageItem, appSuffix, dataSize,
+                processTime, errorType, httpStatus.getStatusCode(), extraText,
                 Level.INFO);
     }
 }

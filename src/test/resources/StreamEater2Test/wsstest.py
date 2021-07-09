@@ -86,6 +86,11 @@ class WSSTest(object):
         # Force the handler to sleep for an allotted amount of time (Default = 0)
         time.sleep(int(self.args.force_sleep))
         # Force the handler to exit with a certain code.
+
+        # trial for usage stats
+        usage_sample = 'USAGESTATS_JSON_START{"version":1,"request_time":"2021-06-24T00:52:32.227Z","completed":"2021-06-24T00:52:32.829Z","interface":"fdsnws-dataselect","address":"881bb035afb9","ipaddress":"192.168.167.1","extra":{"user-agent":"curl/7.64.1","request-url":"http://wsbeta3:8095/fdsnws/dataselect/1/query?net=IU&sta=ANMO&loc=00&cha=BH*&start=2010-02-27T06:30:00.000&end=2010-02-27T10:30:00.000&format=miniseed3","backend-server":"881bb035afb9.iris.washington.edu","return-code":200,"message":"query","service-version":"usagestats_2.5.2-snapshot"},"dataitem":[{"datacenter":"IRISDMC","product":"FDSN:IU_ANMO_00_B_H_1","format":"mSEED","bytes":610816,"span":["2010-02-27T06:30:00.019538Z","2010-02-27T10:29:59.969539Z"]},{"datacenter":"IRISDMC","product":"FDSN:IU_ANMO_00_B_H_Z","format":"mSEED","bytes":636416,"span":["2010-02-27T06:30:00.019538Z","2010-02-27T10:29:59.969538Z"]},{"datacenter":"IRISDMC","product":"FDSN:IU_ANMO_00_B_H_2","format":"mSEED","bytes":608256,"span":["2010-02-27T06:30:00.019538Z","2010-02-27T10:29:59.969538Z"]}]}USAGESTATS_JSON_END'
+        sys.stderr.write(usage_sample)
+
         if self.args.force_exit_code:
             exitcode = int(self.args.force_exit_code)
             exit(exitcode)
