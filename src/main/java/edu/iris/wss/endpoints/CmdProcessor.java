@@ -32,6 +32,8 @@ import java.time.temporal.ChronoUnit;
 import java.util.Date;
 import java.util.HashMap;
 
+import edu.iris.wss.utils.LoggerUtils;
+import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 
 import com.Ostermiller.util.CircularByteBuffer;
@@ -687,15 +689,15 @@ public class CmdProcessor extends IrisProcessor {
                 String usageMessage = se.getOutputString();
                 try {
                     if (isKillingProcess.get()) {
-                        Util.logUsageMessage(ri, "_KillitInWriteMiniSeed",
+                        LoggerUtils.logUsageStrMessage(ri, usageMessage, "_KillitInWriteMiniSeed",
                                 totalBytesTransmitted, processingTime, writeStartTime, writeEndTime,
                                 "killit was called, possible timeout waiting"
-                                + " for data after intial data flow started",
-                                Status.INTERNAL_SERVER_ERROR, usageMessage, epName);
+                                        + " for data after intial data flow started",
+                                Status.INTERNAL_SERVER_ERROR.getStatusCode(), epName, Level.INFO);
                     } else {
-                        Util.logUsageMessage(ri, "_summary", totalBytesTransmitted,
-                                processingTime, writeStartTime, writeEndTime,
-                                null, Status.OK, usageMessage, epName);
+                        LoggerUtils.logUsageStrMessage(ri, usageMessage, "_summary",
+                                totalBytesTransmitted, processingTime, writeStartTime, writeEndTime,
+                                null, Status.OK.getStatusCode(), epName, Level.INFO);
                     }
                 } catch (Exception ex) {
                     logger.error("Error logging MiniSEED response summary , ex: "
@@ -884,17 +886,15 @@ public class CmdProcessor extends IrisProcessor {
                 String usageMessage = se.getOutputString();
                 try {
                     if (isKillingProcess.get()) {
-                        Util.logUsageMessage(ri, "_KillitInWriteNormal",
-                              totalBytesTransmitted, processingTime,
-                              writeStartTime, writeEndTime,
-                              "killit was called, possible timeout waiting for"
-                              + " data after intial data flow started",
-                              Status.INTERNAL_SERVER_ERROR, usageMessage, epName);
+                        LoggerUtils.logUsageStrMessage(ri, usageMessage, "_KillitInWriteNormal",
+                                totalBytesTransmitted, processingTime, writeStartTime, writeEndTime,
+                                "killit was called, possible timeout waiting for"
+                                        + " data after initial data flow started",
+                                Status.INTERNAL_SERVER_ERROR.getStatusCode(), epName, Level.INFO);
                     } else {
-                        Util.logUsageMessage(ri, null, totalBytesTransmitted,
-                                processingTime, writeStartTime, writeEndTime,
-                                null, Status.OK, usageMessage, epName);
-                    }
+                        LoggerUtils.logUsageStrMessage(ri, usageMessage, null,
+                                totalBytesTransmitted, processingTime, writeStartTime, writeEndTime,
+                                null, Status.OK.getStatusCode(), epName, Level.INFO);                    }
                 } catch (Exception ex) {
                     logger.error("Error logging writeNormal response, ex: "
                           + ex, ex);

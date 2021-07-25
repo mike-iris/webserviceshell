@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2018 IRIS DMC supported by the National Science Foundation.
+ * Copyright (c) 2021 IRIS DMC supported by the National Science Foundation.
  *
  * This file is part of the Web Service Shell (WSS).
  *
@@ -20,6 +20,7 @@
 package edu.iris.wss.utils;
 
 import edu.iris.dmc.logging.usage.WSUsageItem;
+import edu.iris.usage.Dataitem;
 import edu.iris.usage.Extra;
 import edu.iris.usage.UsageItem;
 import edu.iris.usage.util.UsageIO;
@@ -28,6 +29,7 @@ import edu.iris.wss.framework.AppConfigurator;
 import java.text.SimpleDateFormat;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
+import java.util.Arrays;
 import java.util.Date;
 
 import org.apache.log4j.Level;
@@ -40,30 +42,54 @@ import edu.iris.wss.framework.WssSingleton;
 
 public class LoggerUtils {
 
-
 	public static final Logger logger = Logger.getLogger(LoggerUtils.class);
 	public static final Logger log4jUsageLogger = Logger.getLogger("UsageLogger");
 
     /**
-     * Support clients that already have UsageItem object.
+     * Support new clients that need to create a UsageItem object.
      */
+    public static void logUsageItemMessage(RequestInfo ri, UsageItem usageItem, String appSuffix,
+                                           Long dataSize, Long processTime,
+                                           String errorType, Integer httpStatusCode, String extraText) {
+        /**
+         * for APIs without explicit start, end times, set them to null and
+         * let the rules handle it.
+         *
+         * prepare final version of usageItem content
+         */
+        applyRulesToUsageItem(ri, usageItem, appSuffix,
+                dataSize, processTime, null, null,
+                errorType, httpStatusCode, extraText);
 
-    public static void logUsageMessage(RequestInfo ri, UsageItem usageItem, String appSuffix,
-                                       Long dataSize, Long processTime,
-                                       String errorType, Integer httpStatusCode, String extraText,
-                                       Level level) {
+        reportUsageStatsMessage(usageItem, ri);
 
-        ZonedDateTime writeEndTime = ZonedDateTime.now(ZoneId.of("UTC"));;
-        logUsageMessage(ri, usageItem, appSuffix,
-                dataSize, processTime, null, writeEndTime,
-                errorType, httpStatusCode, extraText, level);
+        WSUsageItem wsuRabbitMsg = createWsuRabbitMessage(ri, appSuffix,
+                dataSize, processTime,
+                errorType, httpStatusCode,
+                extraText);
+
+        reportWsuRabbitOrLog4jMessage(Level.INFO, wsuRabbitMsg, ri);
     }
 
     /**
-     * Build UsageItem from string, or create a new one
+     * Support existing WSS API and current clients using Util.logUsageMessage
      */
-    public static void logUsageMessage(RequestInfo ri, String usageMessage, String appSuffix,
-                                       Long dataSize, Long processTime, ZonedDateTime writeStartTime, ZonedDateTime writeEndTime,
+    public static void logUsageMessage(RequestInfo ri, String appSuffix,
+                                       Long dataSize, Long processTime,
+                                       String errorType, Integer httpStatusCode, String extraText) {
+        UsageItem usageItem = createDefaultUsageItem(dataSize);
+
+        logUsageItemMessage(ri, usageItem, appSuffix, dataSize, processTime,
+                errorType, httpStatusCode, extraText);
+    }
+
+    /**
+     * Build UsageItem from the expected JSON string delivered by
+     * the handler or create a new usageItem if there are exception.
+     */
+    public static void logUsageStrMessage(RequestInfo ri, String usageMessage, String appSuffix,
+                                       Long dataSize, Long processTime, ZonedDateTime writeStartTime,
+                                       ZonedDateTime writeEndTime,
                                        String errorType, Integer httpStatusCode, String extraText,
                                        Level level) {
 
@@ -88,64 +114,76 @@ public class LoggerUtils {
                     + "  JSON substring: --->" + jsonSubStr + "<---");
         } finally {
             if (null == usageItem) {
-                usageItem = UsageItem.builder().build().withVersion(1.0);
+                usageItem = createDefaultUsageItem(dataSize);
             }
         }
 
-        // finish usageItem settings
-        logUsageMessage(ri, usageItem, appSuffix,
+        /**
+         * do the same call sequence, but WSS is able to provide a
+         * start and end time that may bracket the handler created times,
+         * so the WSS times can be used to override the handler times
+         * depending on the rules.
+         */
+        applyRulesToUsageItem(ri, usageItem, appSuffix,
                 dataSize, processTime, writeStartTime, writeEndTime,
-                errorType, httpStatusCode, extraText, level);
+                errorType, httpStatusCode, extraText);
+
+        reportUsageStatsMessage(usageItem, ri);
+
+        WSUsageItem wsuRabbitMsg = createWsuRabbitMessage(ri, appSuffix,
+                dataSize, processTime,
+                errorType, httpStatusCode,
+                extraText);
+
+        reportWsuRabbitOrLog4jMessage(Level.INFO, wsuRabbitMsg, ri);
     }
 
     /**
-     *
-     * Do WSS adjustments to UsageItem
-     *
-     * @param ri
-     * @param usageItem
-     * @param appSuffix
-     * @param dataSize
-     * @param processTime
-     * @param writeStartTime
-     * @param writeEndTime
-     * @param errorType
-     * @param httpStatusCode
-     * @param extraText
-     * @param level
+     * Create a default object
      */
-    public static void logUsageMessage(RequestInfo ri, UsageItem usageItem, String appSuffix,
-                                     Long dataSize, Long processTime, ZonedDateTime writeStartTime, ZonedDateTime writeEndTime,
-                                     String errorType, Integer httpStatusCode, String extraText,
-                                     Level level) {
+    private static UsageItem createDefaultUsageItem(long bytesProcessed) {
 
-        updateUsageItem(ri, usageItem, appSuffix,
-                dataSize, processTime, writeStartTime, writeEndTime,
-                errorType, httpStatusCode, extraText,
-                level);
+        // store total bytes processed as a single Dateitem element.
+        Dataitem dataItem = Dataitem.builder().build()
+                .withBytes(bytesProcessed);
 
-        // pass through so rabbit object can be built and onto reporting
-        logUsageAndRabbit(ri, usageItem, appSuffix,
-                dataSize, processTime, writeStartTime, writeEndTime,
-                errorType, httpStatusCode, extraText,
-                level);
+        UsageItem usageItem = UsageItem.builder().build()
+                .withVersion(1.0)
+                .withDataitem(Arrays.asList(dataItem));
+
+        return usageItem;
     }
 
     /**
+     * Try to keep all rules for message creation here.
      *
+     * Unless defined otherwise, field assignments should match
+     * the creation of rabbit messages
      */
+    private static void applyRulesToUsageItem(RequestInfo ri, UsageItem usageItem, String appSuffix,
+                                              Long dataSize, Long processTime,
+                                              ZonedDateTime writeStartTime, ZonedDateTime writeEndTime,
+                                              String errorType, Integer httpStatusCode, String extraText) {
 
-    public static void updateUsageItem(RequestInfo ri, UsageItem usageItem, String appSuffix,
-                                       Long dataSize, Long processTime, ZonedDateTime writeStartTime, ZonedDateTime writeEndTime,
-                                       String errorType, Integer httpStatusCode, String extraText,
-                                       Level level) {
+        if (null == usageItem) {
+            logger.error("Error, programmer error, usageItem should not be null at this point!");
+        } else {
+            ZonedDateTime nowTime = ZonedDateTime.now(ZoneId.of("UTC"));
 
-        if (null != usageItem) {
-            if (null != writeStartTime) {
+            if (writeStartTime != null) {
                 usageItem.setRequestTime(writeStartTime);
+            } else {
+                if (usageItem.getRequestTime() == null) {
+                    usageItem.setRequestTime(nowTime);
+                }
             }
-            if (null != writeEndTime) {
+
+            if (writeEndTime != null) {
                 usageItem.setCompleted(writeEndTime);
+            } else {
+                if (usageItem.getCompleted() == null) {
+                    usageItem.setCompleted(nowTime);
+                }
             }
 
             usageItem.setAddress(WebUtils.getHostname());
@@ -178,73 +216,34 @@ public class LoggerUtils {
         }
     }
 
-
     /**
      * Create and send usage message. The items with nulls are for
-     * Miniseed channel information and are not needed here.
+     * Miniseed channel information and are not needed here, but are used
+     * when log4j is active.
      *
      * The level passed in, e.g. ERROR for error messages and INFO for
      * messages is used by log4j.
      *
-     * For values set to null, expecting the logging system to leave those
-     * respective fields out of the delivered message
+     * appSuffix ignored, it was used for something in JMS implementation
      */
-    public static void logUsageAndRabbit(RequestInfo ri, UsageItem usageItem, String appSuffix,
-            Long dataSize, Long processTime, ZonedDateTime writeStartTime, ZonedDateTime writeEndTime,
-            String errorType, Integer httpStatusCode, String extraText,
-            Level level) {
+    private static WSUsageItem createWsuRabbitMessage(RequestInfo ri, String appSuffix,
+                                                      Long dataSize, Long processTime,
+                                                      String errorType, Integer httpStatusCode,
+                                                      String extraText) {
 
         WSUsageItem wsuRabbit = new WSUsageItem();
 
         wsuRabbit.setMessagetype("usage");
 
-        // note: application is now a simple pass through, it no longer
-        //       appends a suffix, as in old code, e.g.
-        //       wui.setApplication(makeFullAppName(ri, appSuffix));
         wsuRabbit.setApplication(    ri.appConfig.getAppName());
-        // however, until feature is not needed, make the old application
-        // name available (for JMS)
-        String olderJMSApplciationName = makeFullAppName(ri, appSuffix);
 
-		if (null != usageItem) {
-            usageItem.setRequestTime(writeStartTime);
-            usageItem.setCompleted(writeEndTime);
-
-            usageItem.setAddress(WebUtils.getHostname());
-            usageItem.setInterface(ri.appConfig.getAppName());
-            usageItem.setIpaddress(WebUtils.getClientIp(ri.request));
-            usageItem.setUserident(WebUtils.getAuthenticatedUsername(ri.requestHeaders));
-
-            Extra extra = usageItem.getExtra();
-            if (extra == null) {
-                extra = new Extra();
-                usageItem.setExtra(extra);
-            }
-
-            if (null == extra.getBackendServer() || extra.getBackendServer().isEmpty()) {
-                extra.setBackendServer(WebUtils.getHostname());
-            }
-
-            if (null == extra.getMessage() || extra.getMessage().isEmpty()) {
-                extra.setMessage(extraText);
-            }
-
-            // todo ?
-            // extra.setReferer(referer);
-            // extra.setRequestUrl(requestUrl);
-            // extra.setServiceVersion(serviceVersion);
-
-            // todo - always replace?
-            extra.setUserAgent(WebUtils.getUserAgent(ri.request));
-            extra.setReturnCode(httpStatusCode);
-		}
-
-		wsuRabbit.setHost(           WebUtils.getHostname());
+        wsuRabbit.setHost(           WebUtils.getHostname());
         wsuRabbit.setAccessDate(     new Date());
         wsuRabbit.setClientName(     WebUtils.getClientName(ri.request));
         wsuRabbit.setClientIp(       WebUtils.getClientIp(ri.request));
         wsuRabbit.setDataSize(       dataSize);
         wsuRabbit.setProcessTimeMsec(processTime);
+        // keep null assignments for readability and comparison to wfstat record creation
         wsuRabbit.setNetwork(        null);
         wsuRabbit.setStation(        null);
         wsuRabbit.setChannel(        null);
@@ -258,16 +257,15 @@ public class LoggerUtils {
         wsuRabbit.setUserName(       WebUtils.getAuthenticatedUsername(ri.requestHeaders));
         wsuRabbit.setExtra(          extraText);
 
-		logWssUsageMessage(level, usageItem, wsuRabbit, ri, olderJMSApplciationName);
-	}
+        return wsuRabbit;
+    }
 
     /**
-     * Create and send message for Miniseed channel information, it is
-     * determined by media type of a request or default configuration.
+     * Create and send message type "wfstat" for Miniseed channel information,
+     * it is determined by media type of a request, and is only called when
+     * configuration logMiniseedExtents is true.
      *
-     * sets message type to wfstat as defined for downstream consumers
-     *
-     * appSuffix ignored
+     * appSuffix ignored, it was used for something in JMS implementation
      *
      */
 	public static void logWfstatMessage(RequestInfo ri,
@@ -280,13 +278,7 @@ public class LoggerUtils {
 
         wsuRabbit.setMessagetype("wfstat");
 
-        // note: application is now a simple pass through, it no longer
-        //       appends a suffix, as in old code, e.g.
-        //       wui.setApplication(makeFullAppName(ri, appSuffix));
         wsuRabbit.setApplication(    ri.appConfig.getAppName());
-        // however, until feature is not needed, make the old application
-        // name available (for JMS)
-        String olderJMSApplciationName = makeFullAppName(ri, appSuffix);
 
         wsuRabbit.setHost(           WebUtils.getHostname());
         wsuRabbit.setAccessDate(     new Date());
@@ -307,79 +299,68 @@ public class LoggerUtils {
         wsuRabbit.setUserName(       WebUtils.getAuthenticatedUsername(ri.requestHeaders));
         wsuRabbit.setExtra(          extraText);
 
-		logWssUsageMessage(Level.INFO, null, wsuRabbit, ri, olderJMSApplciationName);
+        /**
+         * there is no requirement report usageItem for this configuration
+         */
+		reportWsuRabbitOrLog4jMessage(Level.INFO, wsuRabbit, ri);
 	}
 
-	private static void logWssUsageMessage(Level level, UsageItem usageItem, WSUsageItem wsuRabbit,
-          RequestInfo ri, String olderJMSApplciationName) {
-		AppConfigurator.LoggingMethod loggingType = ri.appConfig.getLoggingType();
+    private static void reportWsuRabbitOrLog4jMessage(Level level, WSUsageItem wsuRabbit, RequestInfo ri) {
 
-		if (loggingType == LoggingMethod.LOG4J) {
-            String msg = makeUsageLogString(wsuRabbit);
+        AppConfigurator.LoggingMethod reportType = ri.appConfig.getLoggingType();
 
-			switch (level.toInt()) {
-			case Level.ERROR_INT:
-				log4jUsageLogger.error(msg);
-				break;
-			case Level.INFO_INT:
-				log4jUsageLogger.info(msg);
-				break;
-			default:
-				log4jUsageLogger.debug(msg);
-				break;
-			}
+        if (reportType == LoggingMethod.LOG4J) {
+            /**
+             * Note that log4j uses the rabbit message
+             */
+            String message = makeUsageLogString(wsuRabbit);
 
+            switch (level.toInt()) {
+                case Level.ERROR_INT:
+                    log4jUsageLogger.error(message);
+                    break;
+                case Level.INFO_INT:
+                    log4jUsageLogger.info(message);
+                    break;
+                default:
+                    log4jUsageLogger.debug(message);
+                    break;
+            }
 
-		} else if (loggingType == LoggingMethod.RABBIT_ASYNC
-				|| loggingType == LoggingMethod.USAGE_STATS_AND_RABBIT_ASYNC) {
+        } else if (reportType == LoggingMethod.RABBIT_ASYNC
+                || reportType == LoggingMethod.USAGE_STATS_AND_RABBIT_ASYNC) {
             try {
                 WssSingleton.rabbitAsyncPublisher.publish(wsuRabbit);
             } catch (Exception ex) {
-				ex.printStackTrace();
+                ex.printStackTrace();
                 logger.error("Error while publishing via RABBIT_ASYNC ex: " + ex
-                      + "  rabbitAsyncPublisher: " + WssSingleton.rabbitAsyncPublisher
-                      + "  msg: " + ex.getMessage()
-                      + "  application: " + wsuRabbit.getApplication()
-                      + "  host: " + wsuRabbit.getHost()
-                      + "  client IP: " + wsuRabbit.getClientIp()
-                      + "  ErrorType: " + wsuRabbit.getErrorType());
+                        + "  rabbitAsyncPublisher: " + WssSingleton.rabbitAsyncPublisher
+                        + "  msg: " + ex.getMessage()
+                        + "  application: " + wsuRabbit.getApplication()
+                        + "  host: " + wsuRabbit.getHost()
+                        + "  client IP: " + wsuRabbit.getClientIp()
+                        + "  ErrorType: " + wsuRabbit.getErrorType());
 
 //                logger.error("Error while publishing via RABBIT_ASYNC stack:", ex);
-				ex.printStackTrace();
+                ex.printStackTrace();
             }
-
-		} else if (loggingType == LoggingMethod.USAGE_STATS) {
-			// todo - change to noop at some point, use for validation only 2021-06-21
-			String msg = makeUsageLogString(wsuRabbit);
-
-			switch (level.toInt()) {
-				case Level.ERROR_INT:
-					log4jUsageLogger.error(msg);
-					break;
-				case Level.INFO_INT:
-					log4jUsageLogger.info(msg);
-					break;
-				default:
-					log4jUsageLogger.debug(msg);
-					break;
-			}
-
-		} else {
-            logger.error("Error, unexpected loggingMethod configuration value: "
-                    + loggingType + "  msg: " + makeUsageLogString(wsuRabbit));
         }
+    }
 
-		if (loggingType == LoggingMethod.USAGE_STATS
-				|| loggingType == LoggingMethod.USAGE_STATS_AND_RABBIT_ASYNC) {
-			try {
-				if (null == usageItem) {
-					// noop - must remain to ignore call from logWfstatMessage, which
-                    //        is called when miniseed extents configuration is set true
-					return;
-				}
+    /**
+     * Note that UsageStats needs to be able to run at the same time as
+     * rabbit, so it is in a separate if clause. Also the configuration
+     * parameter USAGE_STATS_AND_RABBIT_ASYNC must set to get both
+     */
+    private static void reportUsageStatsMessage(UsageItem usageItem, RequestInfo ri) {
 
-				int submitStatus = WssSingleton.usageSubmittalService.report(usageItem);
-				if (204 != submitStatus) {
+        AppConfigurator.LoggingMethod reportType = ri.appConfig.getLoggingType();
+
+        if (reportType == LoggingMethod.USAGE_STATS
+                || reportType == LoggingMethod.USAGE_STATS_AND_RABBIT_ASYNC) {
+            try {
+                int submitStatus = WssSingleton.usageSubmittalService.report(usageItem);
+                if (204 != submitStatus) {
                     logger.error("Error - USAGE_STATS submit was not 204 it was:: " + submitStatus
                             + "  usageService: " + WssSingleton.usageSubmittalService
                             + "  interface: " + usageItem.getInterface()
@@ -387,19 +368,19 @@ public class LoggerUtils {
                             + "  ipAddress: " + usageItem.getIpaddress()
                             + "  dataItem: " + usageItem.getDataitem());
                 }
-			} catch (Exception ex) {
-				logger.error("Error while publishing via USAGE_STATS ex: " + ex
-						+ "  usageService: " + WssSingleton.usageSubmittalService
-						+ "  interface: " + usageItem.getInterface()
-						+ "  address: " + usageItem.getAddress()
-						+ "  ipAddress: " + usageItem.getIpaddress()
-						+ "  dataItem: " + usageItem.getDataitem());
-				ex.printStackTrace();
-			}
-		}
-	}
+            } catch (Exception ex) {
+                logger.error("Error while publishing via USAGE_STATS ex: " + ex
+                        + "  usageService: " + WssSingleton.usageSubmittalService
+                        + "  interface: " + usageItem.getInterface()
+                        + "  address: " + usageItem.getAddress()
+                        + "  ipAddress: " + usageItem.getIpaddress()
+                        + "  dataItem: " + usageItem.getDataitem());
+                ex.printStackTrace();
+            }
+        }
+    }
 
-    public static String makeFullAppName(RequestInfo ri, String appSuffix) {
+    private static String makeFullAppName(RequestInfo ri, String appSuffix) {
         String fullAppName = ri.appConfig.getAppName();
         if (appSuffix != null) {
             fullAppName += appSuffix;

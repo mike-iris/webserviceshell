@@ -20,8 +20,6 @@
 package edu.iris.wss.framework;
 
 import java.text.SimpleDateFormat;
-import java.time.ZoneId;
-import java.time.ZonedDateTime;
 import java.util.Date;
 import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.Response;
@@ -108,11 +106,9 @@ public class ServiceShellException extends WebApplicationException {
             logger.error(exceptionMsg);
         }
 
-        ZonedDateTime writeEndTime = ZonedDateTime.now(ZoneId.of("UTC"));
-        String dummyMessage = null; // for intellij auto match typing problem
-        LoggerUtils.logUsageMessage(ri, dummyMessage, dummyMessage,
+        LoggerUtils.logUsageStrMessage(ri, null, null,
                 0L, 0L,
-              writeEndTime,  writeEndTime, briefMsg,
+              null,  null, briefMsg,
               adjusted_status.getStatusCode(), ri.getEndpointNameForThisRequest(),
               Level.ERROR);
 

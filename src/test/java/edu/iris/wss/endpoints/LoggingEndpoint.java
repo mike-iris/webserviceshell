@@ -23,6 +23,7 @@ import edu.iris.wss.framework.FdsnStatus;
 import edu.iris.wss.framework.ParameterTranslator;
 import edu.iris.wss.framework.RequestInfo;
 import edu.iris.wss.framework.Util;
+import edu.iris.wss.utils.LoggerUtils;
 import edu.iris.wss.provider.IrisProcessingResult;
 import edu.iris.wss.provider.IrisProcessor;
 import java.io.IOException;
@@ -35,6 +36,7 @@ import java.util.ListIterator;
 import javax.ws.rs.core.MultivaluedHashMap;
 import javax.ws.rs.core.MultivaluedMap;
 import javax.ws.rs.core.StreamingOutput;
+import org.apache.log4j.Level;
 
 /**
  *
@@ -100,9 +102,10 @@ public class LoggingEndpoint extends IrisProcessor {
             ZonedDateTime writeEndTime = ZonedDateTime.now(ZoneId.of("UTC"));
 
             if (value.equals("usage")) {
-                Util.logUsageMessage(ri, null, 44L, 55L,
+                LoggerUtils.logUsageStrMessage(ri, "usagemsg", null,
+                        44L, 55L,
                       writeEndTime, writeEndTime,null,
-                      FdsnStatus.Status.OK, null, null);
+                      FdsnStatus.Status.OK.getStatusCode(), null, Level.INFO);
 
             } else if (value.equals("wfstat")) {
                 Util.logWfstatMessage(ri, null, 66L, 77L, null,
@@ -111,10 +114,12 @@ public class LoggingEndpoint extends IrisProcessor {
                       "123duration");
 
             } else if (value.equals("error")) {
-                Util.logUsageMessage(ri, "_killittype", 88L, 99L,
+                LoggerUtils.logUsageStrMessage(ri, "usagemsg", "_killittype",
+                        88L, 99L,
                       writeEndTime, writeEndTime,
                       "example usage errortype set for kill after timeout",
-                      FdsnStatus.Status.BAD_REQUEST, null, ri.getEndpointNameForThisRequest());
+                      FdsnStatus.Status.BAD_REQUEST.getStatusCode(),
+                        ri.getEndpointNameForThisRequest(), Level.ERROR);
 
             } else if (value.equals("error_with_exception")) {
                 Util.logAndThrowException(ri, FdsnStatus.Status.BAD_REQUEST,
