@@ -46,6 +46,14 @@ public class WebUtils {
         return hostname;
     }
 
+    public static String getReferer(HttpServletRequest request) {
+        String referer = request.getHeader("referer");
+        if (referer == null) {
+            referer = "referer_NOT_SET_by_client";
+        }
+        return referer;
+    }
+
     public static String getUserAgent(HttpServletRequest request) {
         String userAgent = request.getHeader("user-agent");
         if (userAgent == null) {

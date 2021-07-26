@@ -1,0 +1,166 @@
+/*******************************************************************************
+ * Copyright (c) 2018 IRIS DMC supported by the National Science Foundation.
+ *
+ * This file is part of the Web Service Shell (WSS).
+ *
+ * The WSS is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as
+ * published by the Free Software Foundation, either version 3 of the
+ * License, or (at your option) any later version.
+ *
+ * The WSS is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * A copy of the GNU Lesser General Public License is available at
+ * <http://www.gnu.org/licenses/>.
+ ******************************************************************************/
+
+package edu.iris.wss.utils;
+
+import edu.iris.wss.framework.FdsnStatus;
+import edu.iris.wss.framework.ParameterTranslator;
+import edu.iris.wss.framework.RequestInfo;
+import edu.iris.wss.framework.Util;
+import edu.iris.wss.utils.LoggerUtils;
+import edu.iris.wss.provider.IrisProcessingResult;
+import edu.iris.wss.provider.IrisProcessor;
+import java.io.IOException;
+import java.io.OutputStream;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.ListIterator;
+import javax.ws.rs.core.MultivaluedHashMap;
+import javax.ws.rs.core.MultivaluedMap;
+import javax.ws.rs.core.StreamingOutput;
+import org.apache.log4j.Level;
+
+/**
+ *
+ * @author mike
+ */
+public class UsageStatsEndpointHelper extends IrisProcessor {
+
+    private MultivaluedMap<String, String> getParameters(RequestInfo ri) {
+        String requestedEpName = ri.getEndpointNameForThisRequest();
+        ArrayList<String> cmd = new ArrayList<>();
+		try {
+			ParameterTranslator.parseQueryParams(cmd, ri, requestedEpName);
+		} catch (Exception e) {
+			Util.logAndThrowException(ri, FdsnStatus.Status.BAD_REQUEST,
+                  "UsageStatsEndpointHelper - " + e.getMessage());
+		}
+
+        MultivaluedMap<String, String> mvm = new MultivaluedHashMap();
+        ListIterator<String> cmdIter = cmd.listIterator();
+        while (cmdIter.hasNext()) {
+            String key = cmdIter.next();
+            String val = cmdIter.next();
+            mvm.add(key.replace("--", ""), val);
+        }
+
+        return mvm;
+    }
+
+    @Override
+    public IrisProcessingResult getProcessingResults(RequestInfo ri, String wssMediaType) {
+        IrisProcessingResult ipr = IrisProcessingResult.processString(
+              "endpoint for testing logging");
+
+        if (wssMediaType.contains("application/json")) {
+            StreamingOutput so = new StreamingOutput() {
+                @Override
+                public void write(OutputStream output) {
+                    try {
+                        StringBuilder sb = new StringBuilder();
+                        sb.append("{\n")
+                              .append("  \"name\": \"UsageStatsEndpointHelper\",\n")
+                              .append("  \"testdata\": \"data from getProcessingResults\"\n")
+                              .append("}");
+                        output.write(sb.toString().getBytes());
+                    } catch (IOException ex) {
+                        throw new RuntimeException("UsageStatsEndpointHelper test code"
+                              + " failed to do streaming output, ex: " + ex);
+                    }
+                }
+            };
+
+            ipr = IrisProcessingResult.processStream(so, wssMediaType);
+        }
+
+        /**
+         * Use command line options to select various logging options
+         *
+         * take the incoming query request parameters in ri,
+         * use getParameters to get cmd line options,
+         * then use the options as keys in the multi-valued map,
+         * along with the option value,
+         * then use the respective option value to select logging calls
+         */
+        MultivaluedMap<String, String> mvm = getParameters(ri);
+
+        if (mvm.containsKey("messageType")) {
+            String value = mvm.get("messageType").get(0);
+            ZonedDateTime writeEndTime = ZonedDateTime.now(ZoneId.of("UTC"));
+
+            if (value.equals("usagestr")) {
+                LoggerUtils.logUsageStrMessage(ri, "usagemsg", null,
+                        44L, 55L,
+                      writeEndTime, writeEndTime,null,
+                      FdsnStatus.Status.OK.getStatusCode(), null, Level.INFO);
+
+            } else if (value.equals("usagebasic")) {
+
+                Util.logUsageMessage(ri,null, 66L, 77L, null,
+                      FdsnStatus.Status.OK, "usagebasic  extra-two");
+
+            //    Util.logWfstatMessage(ri, null, 66L, 77L, null,
+            //            FdsnStatus.Status.OK, "wfstat  extra-two",
+            //            "ab", "cd", "ef", "gh", "ij", new Date(), new Date(),
+            //            "123duration");
+
+            } else if (value.equals("error")) {
+                LoggerUtils.logUsageStrMessage(ri, "usagemsg", "_killittype",
+                        88L, 99L,
+                      writeEndTime, writeEndTime,
+                      "example usage errortype set for kill after timeout",
+                      FdsnStatus.Status.BAD_REQUEST.getStatusCode(),
+                        ri.getEndpointNameForThisRequest(), Level.ERROR);
+
+            } else if (value.equals("error_with_exception")) {
+                Util.logAndThrowException(ri, FdsnStatus.Status.BAD_REQUEST,
+                      "show bad_request messageType option: " + value,
+                      "detailed message for bad_request option: " + value);
+
+            } else if (value.equals("log_and_throw_test_null_briefMsg")) {
+                String briefMsg = "briefMsg for messageType option: " + value;
+                briefMsg = null;
+                String detailMsg = "detailed message for messageType option: " + value;
+                Util.logAndThrowException(ri, FdsnStatus.Status.BAD_REQUEST,
+                      briefMsg, detailMsg);
+
+            } else if (value.equals("log_and_throw_test_null_detailMsg")) {
+                String briefMsg = "briefMsg for messageType option: " + value;
+                String detailMsg = "detailed message for messageType option: " + value;
+                detailMsg = null;
+                Util.logAndThrowException(ri, FdsnStatus.Status.BAD_REQUEST,
+                      briefMsg, detailMsg);
+
+            } else {
+                ipr = IrisProcessingResult.processError(
+                      FdsnStatus.Status.BAD_REQUEST,
+                      "unrecognized messageType option: " + value,
+                      "detailed message unrecognized option: " + value);
+            }
+        } else {
+            ipr = IrisProcessingResult.processError(
+                  FdsnStatus.Status.BAD_REQUEST,
+                  "messageType parameter not provided",
+                  "detailed about no messageType parameter");
+        }
+        return ipr;
+    }
+}

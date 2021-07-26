@@ -26,11 +26,13 @@ import edu.iris.usage.UsageItem;
 import edu.iris.usage.util.UsageIO;
 import edu.iris.wss.framework.AppConfigurator;
 
+import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.Arrays;
 import java.util.Date;
+import java.util.List;
 
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
@@ -113,7 +115,7 @@ public class LoggerUtils {
                     + "  usageMessage: --->" + usageMessage + "<---"
                     + "  JSON substring: --->" + jsonSubStr + "<---");
         } finally {
-            if (null == usageItem) {
+            if (usageItem == null) {
                 usageItem = createDefaultUsageItem(dataSize);
             }
         }
@@ -165,7 +167,7 @@ public class LoggerUtils {
                                               ZonedDateTime writeStartTime, ZonedDateTime writeEndTime,
                                               String errorType, Integer httpStatusCode, String extraText) {
 
-        if (null == usageItem) {
+        if (usageItem == null) {
             logger.error("Error, programmer error, usageItem should not be null at this point!");
         } else {
             ZonedDateTime nowTime = ZonedDateTime.now(ZoneId.of("UTC"));
@@ -173,6 +175,7 @@ public class LoggerUtils {
             if (writeStartTime != null) {
                 usageItem.setRequestTime(writeStartTime);
             } else {
+                writeStartTime = nowTime;
                 if (usageItem.getRequestTime() == null) {
                     usageItem.setRequestTime(nowTime);
                 }
@@ -181,12 +184,18 @@ public class LoggerUtils {
             if (writeEndTime != null) {
                 usageItem.setCompleted(writeEndTime);
             } else {
+                writeEndTime = nowTime;
                 if (usageItem.getCompleted() == null) {
                     usageItem.setCompleted(nowTime);
                 }
             }
 
-            usageItem.setAddress(WebUtils.getHostname());
+            if (usageItem.getAddress() == null || usageItem.getAddress().isEmpty()
+                    || WebUtils.getHostname().length() > usageItem.getAddress().length()) {
+                usageItem.setAddress(WebUtils.getHostname());
+            }
+
+            // todo - always replace?
             usageItem.setInterface(ri.appConfig.getAppName());
             usageItem.setIpaddress(WebUtils.getClientIp(ri.request));
             usageItem.setUserident(WebUtils.getAuthenticatedUsername(ri.requestHeaders));
@@ -197,22 +206,81 @@ public class LoggerUtils {
                 usageItem.setExtra(extra);
             }
 
-            if (null == extra.getBackendServer() || extra.getBackendServer().isEmpty()) {
+            if (extra.getBackendServer() == null || extra.getBackendServer().isEmpty()) {
                 extra.setBackendServer(WebUtils.getHostname());
             }
 
-            if (null == extra.getMessage() || extra.getMessage().isEmpty()) {
-                extra.setMessage(extraText);
+            // todo - put some other place? or drop it?
+            if (extra.getMessage() == null || extra.getMessage().isEmpty()) {
+                extra.setMessage("extraText_from_WSS:" + extraText);
             }
 
-            // todo ?
-            // extra.setReferer(referer);
-            // extra.setRequestUrl(requestUrl);
-            // extra.setServiceVersion(serviceVersion);
+            if (extra.getReferer() == null || extra.getReferer().isEmpty()){
+                extra.setReferer(WebUtils.getReferer(ri.request));
+            }
+
+            if (extra.getRequestUrl() == null || extra.getRequestUrl().isEmpty()){
+                extra.setRequestUrl(WebUtils.getUrl(ri.request));
+            }
+
+            if (extra.getServiceVersion() == null || extra.getServiceVersion().isEmpty()) {
+                extra.setServiceVersion(ri.appConfig.getAppVersion());
+            }
 
             // todo - always replace?
             extra.setUserAgent(WebUtils.getUserAgent(ri.request));
+
+            extra.setProtocol(ri.request.getProtocol() + " " + ri.request.getMethod());
             extra.setReturnCode(httpStatusCode);
+
+            List<Dataitem> dataItems = usageItem.getDataitem();
+            if (dataItems == null) {
+                logger.warn("WARN, unexpected null Dataitem list, will try to fix it for"
+                + "  address: " + usageItem.getAddress() + "   interface: " + usageItem.getInterface());
+
+                Dataitem dataItem = Dataitem.builder().build()
+                        .withBytes(dataSize);
+
+                usageItem.setDataitem(Arrays.asList(dataItem));
+            }
+
+            String mediaType = "WSS unknown format";
+            try {
+                mediaType = ri.getPerRequestMediaType(ri.getEndpointNameForThisRequest());
+            } catch (Exception ex) {
+                // should not occur, but put a message to trace back to here
+                mediaType = "WSS excp unknown format";
+            }
+
+            // dataItems list must exist here
+            // check required fields
+            for (Dataitem dataItem : usageItem.getDataitem()) {
+                if (dataItem.getBytes() <= 0) {
+                    dataItem.setBytes(dataSize);
+                }
+
+                if (dataItem.getDatacenter() == null || dataItem.getDatacenter().isEmpty()) {
+                    dataItem.setDatacenter("WSS unknown datacenter");
+                }
+
+                if (dataItem.getProduct() == null || dataItem.getProduct().isEmpty()) {
+                    dataItem.setProduct("WSS unknown product");
+                }
+
+                if (dataItem.getFormat() == null || dataItem.getFormat().isEmpty()) {
+                    dataItem.setFormat(mediaType);
+                }
+            }
+
+            System.out.println("********** ri.request.getAuthType()): " + ri.request.getAuthType());
+            System.out.println("********** errorType): " + errorType);
+            try {
+                System.out.println("********** ri.getPerRequestFormatTypeKey: "
+                        + ri.getPerRequestFormatTypeKey(ri.getEndpointNameForThisRequest())
+                    + "  mediaType: " + mediaType);
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
         }
     }
 
@@ -307,6 +375,8 @@ public class LoggerUtils {
 
     private static void reportWsuRabbitOrLog4jMessage(Level level, WSUsageItem wsuRabbit, RequestInfo ri) {
 
+        String log4jmsg = makeUsageLogString(wsuRabbit);
+        System.out.println("********** log4jmsg: " + log4jmsg);
         AppConfigurator.LoggingMethod reportType = ri.appConfig.getLoggingType();
 
         if (reportType == LoggingMethod.LOG4J) {
@@ -365,16 +435,14 @@ public class LoggerUtils {
                             + "  usageService: " + WssSingleton.usageSubmittalService
                             + "  interface: " + usageItem.getInterface()
                             + "  address: " + usageItem.getAddress()
-                            + "  ipAddress: " + usageItem.getIpaddress()
-                            + "  dataItem: " + usageItem.getDataitem());
+                            + "  ipAddress: " + usageItem.getIpaddress());
                 }
             } catch (Exception ex) {
                 logger.error("Error while publishing via USAGE_STATS ex: " + ex
                         + "  usageService: " + WssSingleton.usageSubmittalService
                         + "  interface: " + usageItem.getInterface()
                         + "  address: " + usageItem.getAddress()
-                        + "  ipAddress: " + usageItem.getIpaddress()
-                        + "  dataItem: " + usageItem.getDataitem());
+                        + "  ipAddress: " + usageItem.getIpaddress());
                 ex.printStackTrace();
             }
         }
