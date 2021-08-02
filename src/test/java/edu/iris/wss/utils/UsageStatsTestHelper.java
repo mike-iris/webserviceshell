@@ -98,8 +98,10 @@ public class UsageStatsTestHelper {
         sb.append("# usage-stats URL").append("\n");
         sb.append("usageSubmitServiceURL=http://wsbeta3.iris.washington.edu:8089/iriswsbeta/usage-stats/1/submit").append("\n");
         sb.append("\n");
+
         sb.append("# LOG4J or RABBIT_ASYNC or USAGE_STATS or USAGE_STATS_AND_RABBIT_ASYNC").append("\n");
-   //must have submit service available     sb.append("loggingMethod=USAGE_STATS").append("\n");
+        // note: must have submit service available to enable this option rather than lOG4J
+        //sb.append("loggingMethod=USAGE_STATS").append("\n");
         sb.append("loggingMethod=LOG4J").append("\n");
 
         // dont' need for now, arbitrary setting

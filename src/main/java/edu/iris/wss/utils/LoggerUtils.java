@@ -32,7 +32,9 @@ import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.Arrays;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
@@ -41,6 +43,8 @@ import edu.iris.wss.framework.RequestInfo;
 import edu.iris.wss.framework.AppConfigurator.LoggingMethod;
 import edu.iris.wss.framework.Util;
 import edu.iris.wss.framework.WssSingleton;
+
+import com.google.gson.Gson;
 
 public class LoggerUtils {
 
@@ -210,9 +214,21 @@ public class LoggerUtils {
                 extra.setBackendServer(WebUtils.getHostname());
             }
 
-            // todo - put some other place? or drop it?
-            if (extra.getMessage() == null || extra.getMessage().isEmpty()) {
-                extra.setMessage("extraText_from_WSS:" + extraText);
+            if ( ! (extraText == null || extraText.isEmpty())) {
+                // Put extraText in additionalProperites - Use the top level elements
+                // as keys and put remainder of object back into a JSON string
+                try {
+                    Gson gson = new Gson();
+                    Map<String,Object> map = new HashMap<String,Object>();
+                    map = (Map<String,Object>) gson.fromJson(extraText, map.getClass());
+                    for (String key: map.keySet()) {
+                        String remaining = gson.toJson(map.get(key));
+                        extra.withAdditionalProperty(key, remaining);
+                    }
+                } catch (Exception ex) {
+                    // Use extraText as-is when it does not convert to JSON
+                    extra.withAdditionalProperty("extraText_from_WSS", extraText);
+                }
             }
 
             if (extra.getReferer() == null || extra.getReferer().isEmpty()){
@@ -272,8 +288,6 @@ public class LoggerUtils {
                 }
             }
 
-            System.out.println("********** ri.request.getAuthType()): " + ri.request.getAuthType());
-            System.out.println("********** errorType): " + errorType);
             try {
                 System.out.println("********** ri.getPerRequestFormatTypeKey: "
                         + ri.getPerRequestFormatTypeKey(ri.getEndpointNameForThisRequest())
@@ -376,7 +390,7 @@ public class LoggerUtils {
     private static void reportWsuRabbitOrLog4jMessage(Level level, WSUsageItem wsuRabbit, RequestInfo ri) {
 
         String log4jmsg = makeUsageLogString(wsuRabbit);
-        System.out.println("********** log4jmsg: " + log4jmsg);
+
         AppConfigurator.LoggingMethod reportType = ri.appConfig.getLoggingType();
 
         if (reportType == LoggingMethod.LOG4J) {

@@ -113,10 +113,6 @@ public class UsageStatsTest {
         test_log_usagebasic();
         test_log_error();
         test_log_error_with_exception();
-
-        // tag along to test media type acceptance
-    //    test_request_of_media_type_defined();
-    //    test_request_of_media_type_not_defined();
     }
 
     // The UsageStatsEndpointHelper code calls various logging options
@@ -184,6 +180,35 @@ public class UsageStatsTest {
         // and grizzley server does not construct a WebApplicationException
         // completely
 //        assertEquals("text/plain", response.getMediaType().toString());
+    }
+
+    @Test
+    public void test_extraText_0() throws Exception {
+        test_extraText1("test_extraText1");
+        test_extraText1("test_extraText2");
+        test_extraText1("test_extraText3");
+    }
+
+    public void test_extraText1(String testSelection) throws Exception {
+
+        Client c = ClientBuilder.newClient();
+
+        WebTarget webTarget = c.target(BASE_URI)
+                .path("/test_logging")
+                .queryParam("format", "TEXT")
+                .queryParam("messageType", testSelection);
+
+        // json is defined in endpoint format type
+        Response response = webTarget.request(new MediaType("application", "json")).get();
+
+        assertEquals(200, response.getStatus());
+        assertEquals("text/plain", response.getMediaType().toString());
+    }
+
+    @Test
+    public void test_media_types_0() throws Exception {
+        test_request_of_media_type_defined();
+        test_request_of_media_type_not_defined();
     }
 
     public void test_request_of_media_type_defined() throws Exception {

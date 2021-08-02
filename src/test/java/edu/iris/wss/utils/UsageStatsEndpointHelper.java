@@ -149,6 +149,24 @@ public class UsageStatsEndpointHelper extends IrisProcessor {
                 Util.logAndThrowException(ri, FdsnStatus.Status.BAD_REQUEST,
                       briefMsg, detailMsg);
 
+            } else if (value.equals("test_extraText1")) {
+                String extraText = "{\"channelSummary\": {\"dcsummary\":{\"IRISDMC\":{\"channels\":1,\"seconds\":5.9930749E7}}}, \"item2\": \"value2\", \"k1\":1,\"k2\":5.9930749E7}";
+
+                Util.logUsageMessage(ri,null, 166L, 177L, null,
+                        FdsnStatus.Status.OK, extraText);
+
+            } else if (value.equals("test_extraText2")) {
+                String extraText = "{\"channelSummary\": {\"dcsummary\":{\"IRISDMC\":{\"channels\":1,\"seconds\":5.9930749E7}}}}";
+
+                Util.logUsageMessage(ri,null, 166L, 177L, null,
+                        FdsnStatus.Status.OK, extraText);
+
+            } else if (value.equals("test_extraText3")) {
+                String extraText = "some text for WSS testing which is not JSON";
+
+                Util.logUsageMessage(ri,null, 166L, 177L, null,
+                        FdsnStatus.Status.OK, extraText);
+
             } else {
                 ipr = IrisProcessingResult.processError(
                       FdsnStatus.Status.BAD_REQUEST,
