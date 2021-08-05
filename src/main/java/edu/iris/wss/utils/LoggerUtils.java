@@ -260,14 +260,6 @@ public class LoggerUtils {
                 usageItem.setDataitem(Arrays.asList(dataItem));
             }
 
-            String mediaType = "WSS unknown format";
-            try {
-                mediaType = ri.getPerRequestMediaType(ri.getEndpointNameForThisRequest());
-            } catch (Exception ex) {
-                // should not occur, but put a message to trace back to here
-                mediaType = "WSS excp unknown format";
-            }
-
             // dataItems list must exist here
             // check required fields
             for (Dataitem dataItem : usageItem.getDataitem()) {
@@ -284,16 +276,15 @@ public class LoggerUtils {
                 }
 
                 if (dataItem.getFormat() == null || dataItem.getFormat().isEmpty()) {
-                    dataItem.setFormat(mediaType);
+                    try {
+                        String requestFormat = ri.getPerRequestFormatTypeKey(ri.getEndpointNameForThisRequest());
+                        dataItem.setFormat(requestFormat);
+                    } catch (Exception ex) {
+                        dataItem.setFormat("WSS unknown format");
+                        logger.warn("Warning, an exception occurred while getting format, ex: " + ex
+                                + "  note: this is unexpected as the original request should have been rejected.");
+                    }
                 }
-            }
-
-            try {
-                System.out.println("********** ri.getPerRequestFormatTypeKey: "
-                        + ri.getPerRequestFormatTypeKey(ri.getEndpointNameForThisRequest())
-                    + "  mediaType: " + mediaType);
-            } catch (Exception e) {
-                e.printStackTrace();
             }
         }
     }
