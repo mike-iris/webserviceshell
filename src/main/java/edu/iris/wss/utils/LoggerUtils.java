@@ -26,7 +26,6 @@ import edu.iris.usage.UsageItem;
 import edu.iris.usage.util.UsageIO;
 import edu.iris.wss.framework.AppConfigurator;
 
-import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
@@ -194,15 +193,22 @@ public class LoggerUtils {
                 }
             }
 
-            if (usageItem.getAddress() == null || usageItem.getAddress().isEmpty()
-                    || WebUtils.getHostname().length() > usageItem.getAddress().length()) {
-                usageItem.setAddress(WebUtils.getHostname());
+            if (isNullOrEmpty(usageItem.getAddress())
+                    || WebUtils.getClientName(ri.request).length() > usageItem.getAddress().length()) {
+                usageItem.setAddress(WebUtils.getClientName(ri.request));
             }
 
-            // todo - always replace?
-            usageItem.setInterface(ri.appConfig.getAppName());
-            usageItem.setIpaddress(WebUtils.getClientIp(ri.request));
-            usageItem.setUserident(WebUtils.getAuthenticatedUsername(ri.requestHeaders));
+            if (isNullOrEmpty(usageItem.getInterface())) {
+                usageItem.setInterface(ri.appConfig.getAppName());
+            }
+
+            if (isNullOrEmpty(usageItem.getIpaddress())){
+                usageItem.setIpaddress(WebUtils.getClientIp(ri.request));
+            }
+
+            if (isNullOrEmpty(usageItem.getUserident())){
+                usageItem.setUserident(WebUtils.getAuthenticatedUsername(ri.requestHeaders));
+            }
 
             Extra extra = usageItem.getExtra();
             if (extra == null) {
@@ -210,11 +216,40 @@ public class LoggerUtils {
                 usageItem.setExtra(extra);
             }
 
-            if (extra.getBackendServer() == null || extra.getBackendServer().isEmpty()) {
+            if (isNullOrEmpty(extra.getUserAgent())){
+                extra.setUserAgent(WebUtils.getUserAgent(ri.request));
+            }
+
+            if (isNullOrEmpty(extra.getRequestUrl())){
+                extra.setRequestUrl(WebUtils.getUrl(ri.request));
+            }
+
+            if (isNullOrEmpty(extra.getReferer())){
+                extra.setReferer(WebUtils.getReferer(ri.request));
+            }
+
+            if (isNullOrEmpty(extra.getBackendServer())
+                    || WebUtils.getHostname().length() > extra.getBackendServer().length()) {
                 extra.setBackendServer(WebUtils.getHostname());
             }
 
-            if ( ! (extraText == null || extraText.isEmpty())) {
+            // todo - add parent?
+
+            if (extra.getReturnCode() == null){
+                extra.setReturnCode(httpStatusCode);
+            }
+
+            // todo - add message?
+
+            if (isNullOrEmpty(extra.getProtocol())){
+                extra.setProtocol(ri.request.getProtocol() + " " + ri.request.getMethod());
+            }
+
+            if (isNullOrEmpty(extra.getServiceVersion())) {
+                extra.setServiceVersion(ri.appConfig.getAppVersion());
+            }
+
+            if ( ! (isNullOrEmpty(extraText))) {
                 // Put extraText in additionalProperites - Use the top level elements
                 // as keys and put remainder of object back into a JSON string
                 try {
@@ -230,24 +265,6 @@ public class LoggerUtils {
                     extra.withAdditionalProperty("extraText_from_WSS", extraText);
                 }
             }
-
-            if (extra.getReferer() == null || extra.getReferer().isEmpty()){
-                extra.setReferer(WebUtils.getReferer(ri.request));
-            }
-
-            if (extra.getRequestUrl() == null || extra.getRequestUrl().isEmpty()){
-                extra.setRequestUrl(WebUtils.getUrl(ri.request));
-            }
-
-            if (extra.getServiceVersion() == null || extra.getServiceVersion().isEmpty()) {
-                extra.setServiceVersion(ri.appConfig.getAppVersion());
-            }
-
-            // todo - always replace?
-            extra.setUserAgent(WebUtils.getUserAgent(ri.request));
-
-            extra.setProtocol(ri.request.getProtocol() + " " + ri.request.getMethod());
-            extra.setReturnCode(httpStatusCode);
 
             List<Dataitem> dataItems = usageItem.getDataitem();
             if (dataItems == null) {
@@ -267,15 +284,15 @@ public class LoggerUtils {
                     dataItem.setBytes(dataSize);
                 }
 
-                if (dataItem.getDatacenter() == null || dataItem.getDatacenter().isEmpty()) {
+                if (isNullOrEmpty(dataItem.getDatacenter())) {
                     dataItem.setDatacenter("WSS unknown datacenter");
                 }
 
-                if (dataItem.getProduct() == null || dataItem.getProduct().isEmpty()) {
+                if (isNullOrEmpty(dataItem.getProduct())) {
                     dataItem.setProduct("WSS unknown product");
                 }
 
-                if (dataItem.getFormat() == null || dataItem.getFormat().isEmpty()) {
+                if (isNullOrEmpty(dataItem.getFormat())) {
                     try {
                         String requestFormat = ri.getPerRequestFormatTypeKey(ri.getEndpointNameForThisRequest());
                         dataItem.setFormat(requestFormat);
@@ -545,6 +562,10 @@ public class LoggerUtils {
 
 		return sb.toString();
 	}
+
+    public static boolean isNullOrEmpty(String str) {
+        return str == null || str.isEmpty();
+    }
 
 	private static void append(StringBuffer sb, String s) {
 		if (AppConfigurator.isOkString(s))
