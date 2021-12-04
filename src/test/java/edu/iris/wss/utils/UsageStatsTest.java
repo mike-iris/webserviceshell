@@ -110,6 +110,7 @@ public class UsageStatsTest {
     @Test
     public void test_log_types_0() throws Exception {
         test_log_usagestr();
+        test_json_parse_error();
         test_log_usagebasic();
         test_log_error();
         test_log_error_with_exception();
@@ -131,6 +132,21 @@ public class UsageStatsTest {
 
         assertEquals(200, response.getStatus());
         assertEquals("text/plain", response.getMediaType().toString());
+    }
+
+    public void test_json_parse_error() throws Exception {
+
+        Client c = ClientBuilder.newClient();
+
+        WebTarget webTarget = c.target(BASE_URI)
+                .path("/test_logging")
+                .queryParam("format", "TEXT")
+                .queryParam("messageType", "test_json_parse_error");
+
+        Response response = webTarget.request().get();
+
+        //assertEquals(200, response.getStatus());
+        //assertEquals("text/plain", response.getMediaType().toString());
     }
 
     public void test_log_usagebasic() throws Exception {

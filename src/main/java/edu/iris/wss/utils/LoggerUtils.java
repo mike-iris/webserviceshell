@@ -108,15 +108,26 @@ public class LoggerUtils {
             );
             usageItem = UsageIO.read(jsonSubStr);
         } catch (IndexOutOfBoundsException ex) {
-            logger.error("Error one or both indices for start: " +  WssSingleton.USAGESTATS_JSON_START_IDENTIFIER
-                    + "  or end: " + WssSingleton.USAGESTATS_JSON_END_IDENTIFIER
-                    + "  ex: " + ex
-                    + "  usageMessage: --->" + usageMessage + "<---"
-                    + "  JSON substring: --->" + jsonSubStr + "<---");
+            logger.error("Error in one or both JSON identifiers, expecting: "
+                    +  WssSingleton.USAGESTATS_JSON_START_IDENTIFIER
+                    + "json-string" + WssSingleton.USAGESTATS_JSON_END_IDENTIFIER
+                    + "  exception: " + ex
+                    + ", input JSON Message: --->" + usageMessage + "<---"
+                    + "  found JSON string --->" + jsonSubStr + "<---");
+            if (errorType == null) {
+                errorType = "Error finding JSON";
+            } else {
+                errorType = "Error finding JSON and " + errorType;
+            }
         } catch (Exception ex) {
-            logger.error("Error parsing JSON from usageMessage ex: " + ex
-                    + "  usageMessage: --->" + usageMessage + "<---"
-                    + "  JSON substring: --->" + jsonSubStr + "<---");
+            logger.error("Error parsing JSON from usageMessage  exception: " + ex
+                    + ", input JSON Message: --->" + usageMessage + "<---"
+                    + "  tried to parse as JSON: --->" + jsonSubStr + "<---");
+            if (errorType == null) {
+                errorType = "Error parsing JSON";
+            } else {
+                errorType = "Error parsing JSON and " + errorType;
+            }
         } finally {
             if (usageItem == null) {
                 usageItem = createDefaultUsageItem(dataSize);

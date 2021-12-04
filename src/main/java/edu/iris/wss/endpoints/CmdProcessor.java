@@ -692,7 +692,7 @@ public class CmdProcessor extends IrisProcessor {
                         LoggerUtils.logUsageStrMessage(ri, usageMessage, "_KillitInWriteMiniSeed",
                                 totalBytesTransmitted, processingTime, writeStartTime, writeEndTime,
                                 "killit was called, possible timeout waiting"
-                                        + " for data after intial data flow started",
+                                        + " for data after initial data flow started",
                                 Status.INTERNAL_SERVER_ERROR.getStatusCode(), epName, Level.INFO);
                     } else {
                         LoggerUtils.logUsageStrMessage(ri, usageMessage, "_summary",

@@ -23,6 +23,7 @@ import edu.iris.wss.framework.FdsnStatus;
 import edu.iris.wss.framework.ParameterTranslator;
 import edu.iris.wss.framework.RequestInfo;
 import edu.iris.wss.framework.Util;
+import edu.iris.wss.framework.WssSingleton;
 import edu.iris.wss.utils.LoggerUtils;
 import edu.iris.wss.provider.IrisProcessingResult;
 import edu.iris.wss.provider.IrisProcessor;
@@ -102,20 +103,35 @@ public class UsageStatsEndpointHelper extends IrisProcessor {
          */
         MultivaluedMap<String, String> mvm = getParameters(ri);
 
+        /** Note: to check operation - view junit_wss_usage.log and junit_wss.log
+         *       and verify that corresponding messages/errors are delivered
+         *       per call by messageType
+         */
         if (mvm.containsKey("messageType")) {
             String value = mvm.get("messageType").get(0);
             ZonedDateTime writeEndTime = ZonedDateTime.now(ZoneId.of("UTC"));
 
             if (value.equals("usagestr")) {
-                LoggerUtils.logUsageStrMessage(ri, "usagemsg", null,
+                LoggerUtils.logUsageStrMessage(ri, "messageType: usagestr", null,
                         44L, 55L,
                       writeEndTime, writeEndTime,null,
                       FdsnStatus.Status.OK.getStatusCode(), null, Level.INFO);
 
+            } else if (value.equals("test_json_parse_error")) {
+                // no closing }
+                String usageMsg = WssSingleton.USAGESTATS_JSON_START_IDENTIFIER
+                        + "{\"testjson\":\"value with no closing brace\""
+                        + WssSingleton.USAGESTATS_JSON_END_IDENTIFIER;
+
+                LoggerUtils.logUsageStrMessage(ri, usageMsg, null,
+                        44L, 55L,
+                        writeEndTime, writeEndTime,null,
+                        FdsnStatus.Status.OK.getStatusCode(), null, Level.INFO);
+
             } else if (value.equals("usagebasic")) {
 
                 Util.logUsageMessage(ri,null, 66L, 77L, null,
-                      FdsnStatus.Status.OK, "usagebasic  extra-two");
+                      FdsnStatus.Status.OK, "messageType: usagebasic  extra-two");
 
             //    Util.logWfstatMessage(ri, null, 66L, 77L, null,
             //            FdsnStatus.Status.OK, "wfstat  extra-two",
@@ -123,7 +139,7 @@ public class UsageStatsEndpointHelper extends IrisProcessor {
             //            "123duration");
 
             } else if (value.equals("error")) {
-                LoggerUtils.logUsageStrMessage(ri, "usagemsg", "_killittype",
+                LoggerUtils.logUsageStrMessage(ri, "messageType: error", "_killittype",
                         88L, 99L,
                       writeEndTime, writeEndTime,
                       "example usage errortype set for kill after timeout",
@@ -132,19 +148,19 @@ public class UsageStatsEndpointHelper extends IrisProcessor {
 
             } else if (value.equals("error_with_exception")) {
                 Util.logAndThrowException(ri, FdsnStatus.Status.BAD_REQUEST,
-                      "show bad_request messageType option: " + value,
-                      "detailed message for bad_request option: " + value);
+                      "show bad_request messageType: " + value,
+                      "detailed message for bad_request messageType:: " + value);
 
             } else if (value.equals("log_and_throw_test_null_briefMsg")) {
-                String briefMsg = "briefMsg for messageType option: " + value;
+                String briefMsg = "briefMsg for messageType: " + value;
                 briefMsg = null;
-                String detailMsg = "detailed message for messageType option: " + value;
+                String detailMsg = "detailed message for messageType: " + value;
                 Util.logAndThrowException(ri, FdsnStatus.Status.BAD_REQUEST,
                       briefMsg, detailMsg);
 
             } else if (value.equals("log_and_throw_test_null_detailMsg")) {
-                String briefMsg = "briefMsg for messageType option: " + value;
-                String detailMsg = "detailed message for messageType option: " + value;
+                String briefMsg = "briefMsg for messageType: " + value;
+                String detailMsg = "detailed message for messageType: " + value;
                 detailMsg = null;
                 Util.logAndThrowException(ri, FdsnStatus.Status.BAD_REQUEST,
                       briefMsg, detailMsg);

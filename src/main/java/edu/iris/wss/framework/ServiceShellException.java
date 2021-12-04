@@ -106,11 +106,9 @@ public class ServiceShellException extends WebApplicationException {
             logger.error(exceptionMsg);
         }
 
-        LoggerUtils.logUsageStrMessage(ri, null, null,
-                0L, 0L,
-              null,  null, briefMsg,
-              adjusted_status.getStatusCode(), ri.getEndpointNameForThisRequest(),
-              Level.ERROR);
+        LoggerUtils.logUsageMessage(ri, null, 0L, 0L,
+                briefMsg, adjusted_status.getStatusCode(),
+                ri.getEndpointNameForThisRequest());
 
         String errMsg = createFdsnErrorMsg(adjusted_status, briefMsg, detailedMsg,
           ri.request.getRequestURL().toString(), ri.request.getQueryString(),
