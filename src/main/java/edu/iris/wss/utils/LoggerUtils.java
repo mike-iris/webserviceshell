@@ -20,6 +20,7 @@
 package edu.iris.wss.utils;
 
 import edu.iris.dmc.logging.usage.WSUsageItem;
+import edu.iris.dmc.logging.usage.WSUsageItemHelper;
 import edu.iris.usage.Dataitem;
 import edu.iris.usage.Extra;
 import edu.iris.usage.UsageItem;
@@ -106,6 +107,7 @@ public class LoggerUtils {
                             + WssSingleton.USAGESTATS_JSON_START_IDENTIFIER_LENGTH,
                     usageMessage.indexOf(WssSingleton.USAGESTATS_JSON_END_IDENTIFIER)
             );
+            logger.info("logUsageStrMessage json: " + jsonSubStr);
             usageItem = UsageIO.read(jsonSubStr);
         } catch (IndexOutOfBoundsException ex) {
             logger.error("Error in one or both JSON identifiers, expecting: "
@@ -245,6 +247,10 @@ public class LoggerUtils {
             }
 
             // todo - add parent?
+
+            logger.info("applyRulesToUsageItem errorType related to json: " + errorType);
+            logger.info("applyRulesToUsageItem returncode related to json: " + extra.getReturnCode());
+            logger.info("applyRulesToUsageItem httpStatusCode related to json: " + httpStatusCode);
 
             if (extra.getReturnCode() == null){
                 extra.setReturnCode(httpStatusCode);
@@ -410,6 +416,11 @@ public class LoggerUtils {
 
         String log4jmsg = makeUsageLogString(wsuRabbit);
 
+        String json = WSUsageItemHelper.usageItemToJSon(wsuRabbit);
+        logger.info("wsuRabbit json: " + json);
+        String routing = WSUsageItemHelper.usageItemToRoutingKey(wsuRabbit);
+        logger.info("wsuRabbit routing: " + routing);
+
         AppConfigurator.LoggingMethod reportType = ri.appConfig.getLoggingType();
 
         if (reportType == LoggingMethod.LOG4J) {
@@ -456,6 +467,13 @@ public class LoggerUtils {
      * parameter USAGE_STATS_AND_RABBIT_ASYNC must set to get both
      */
     private static void reportUsageStatsMessage(UsageItem usageItem, RequestInfo ri) {
+
+        try {
+        String jsonSubStr = UsageIO.toJsonString(usageItem);
+        logger.info("reportUsageStatsMessage usageItem json: " + jsonSubStr);
+    } catch (Exception ex) {
+        logger.info("reportUsageStatsMessage parse ex json: " + ex);
+    }
 
         AppConfigurator.LoggingMethod reportType = ri.appConfig.getLoggingType();
 
