@@ -1,4 +1,3 @@
-#!/usr/bin/python
 #!/usr/bin/env python
 
 '''
@@ -34,7 +33,7 @@ force an exception with exit code 1 *before* writing data to std-out and write a
 
 from argparse import ArgumentParser
 import xml.etree.cElementTree as ET
-from cStringIO import StringIO
+##from cStringIO import StringIO
 ##from io import StringIO
 import random
 import sys
@@ -125,7 +124,7 @@ class WSSTest(object):
            @param num integer: the number of random values
            to produce
         '''
-        text_output = ", ".join([str(random.randint(0, 100)) for x in xrange(num)])
+        text_output = ", ".join([str(random.randint(0, 100)) for x in range(num)])
 
         if self.args.force_error.lower() == "runtime":
             self.raise_runtime_error()
