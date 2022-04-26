@@ -21,6 +21,7 @@ package edu.iris.wss.utils;
 
 import edu.iris.dmc.logging.usage.WSUsageItem;
 import edu.iris.usage.Dataitem;
+import edu.iris.usage.Dataitem.DataitemBuilder;
 import edu.iris.usage.Extra;
 import edu.iris.usage.UsageItem;
 import edu.iris.usage.util.UsageIO;
@@ -29,11 +30,10 @@ import edu.iris.wss.framework.AppConfigurator;
 import java.text.SimpleDateFormat;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
@@ -42,8 +42,6 @@ import edu.iris.wss.framework.RequestInfo;
 import edu.iris.wss.framework.AppConfigurator.LoggingMethod;
 import edu.iris.wss.framework.Util;
 import edu.iris.wss.framework.WssSingleton;
-
-import com.google.gson.Gson;
 
 public class LoggerUtils {
 
@@ -62,11 +60,11 @@ public class LoggerUtils {
          *
          * prepare final version of usageItem content
          */
-        applyRulesToUsageItem(ri, usageItem, appSuffix,
+        UsageItem checkedUsageItem = applyRulesToUsageItem(ri, usageItem, appSuffix,
                 dataSize, processTime, null, null,
                 errorType, httpStatusCode, extraText);
 
-        reportUsageStatsMessage(usageItem, ri);
+        reportUsageStatsMessage(checkedUsageItem, ri);
 
         WSUsageItem wsuRabbitMsg = createWsuRabbitMessage(ri, appSuffix,
                 dataSize, processTime,
@@ -140,11 +138,11 @@ public class LoggerUtils {
          * so the WSS times can be used to override the handler times
          * depending on the rules.
          */
-        applyRulesToUsageItem(ri, usageItem, appSuffix,
+        UsageItem checkedUsageItem = applyRulesToUsageItem(ri, usageItem, appSuffix,
                 dataSize, processTime, writeStartTime, writeEndTime,
                 errorType, httpStatusCode, extraText);
 
-        reportUsageStatsMessage(usageItem, ri);
+        reportUsageStatsMessage(checkedUsageItem, ri);
 
         WSUsageItem wsuRabbitMsg = createWsuRabbitMessage(ri, appSuffix,
                 dataSize, processTime,
@@ -157,15 +155,18 @@ public class LoggerUtils {
     /**
      * Create a default object
      */
-    private static UsageItem createDefaultUsageItem(long bytesProcessed) {
+    private static UsageItem createDefaultUsageItem(Long bytesProcessed) {
 
         // store total bytes processed as a single Dateitem element.
-        Dataitem dataItem = Dataitem.builder().build()
-                .withBytes(bytesProcessed);
 
-        UsageItem usageItem = UsageItem.builder().build()
-                .withVersion(1.0)
-                .withDataitem(Arrays.asList(dataItem));
+        Dataitem dataItem = new DataitemBuilder()
+                .bytes(bytesProcessed)
+                .build();
+
+        UsageItem usageItem = new UsageItem.UsageItemBuilder()
+                .version(1.0)
+                .dataItems(Arrays.asList(dataItem))
+                .build();
 
         return usageItem;
     }
@@ -176,144 +177,205 @@ public class LoggerUtils {
      * Unless defined otherwise, field assignments should match
      * the creation of rabbit messages
      */
-    private static void applyRulesToUsageItem(RequestInfo ri, UsageItem usageItem, String appSuffix,
+    private static UsageItem applyRulesToUsageItem(RequestInfo ri, UsageItem usageItem, String appSuffix,
                                               Long dataSize, Long processTime,
                                               ZonedDateTime writeStartTime, ZonedDateTime writeEndTime,
                                               String errorType, Integer httpStatusCode, String extraText) {
 
         if (usageItem == null) {
             logger.error("Error, programmer error, usageItem should not be null at this point!");
+            return null;
         } else {
             ZonedDateTime nowTime = ZonedDateTime.now(ZoneId.of("UTC"));
 
+            // inconvenient semantics for what I need to do, which is quality
+            // check incoming UsageItem data. When UsageItem has no setters, or
+            // the builders have no getters, I do this
+
+            UsageItem.UsageItemBuilder uibuilder = new UsageItem.UsageItemBuilder();
+            uibuilder.version(usageItem.getVersion())
+                    .requestTime(usageItem.getRequestTime())
+                    .completed(usageItem.getCompleted())
+                    .address(usageItem.getAddress())
+                    ._interface(usageItem.getInterface())
+                    .ipaddress(usageItem.getIpaddress())
+                    .userident(usageItem.getUserident())
+                    //.extra(usageItem.getExtra())  // defer setting until after content check
+                    //.dataItem(usageItem.getDataitem())  // defer setting until after content check
+            ;
+
+            ZonedDateTime updatedStartTime = writeStartTime;
             if (writeStartTime != null) {
-                usageItem.setRequestTime(writeStartTime);
+                uibuilder.requestTime(writeStartTime);
             } else {
-                writeStartTime = nowTime;
+                updatedStartTime = nowTime;
                 if (usageItem.getRequestTime() == null) {
-                    usageItem.setRequestTime(nowTime);
+                    uibuilder.requestTime(nowTime);
                 }
             }
 
+            ZonedDateTime updatedEndTime = writeStartTime;
             if (writeEndTime != null) {
-                usageItem.setCompleted(writeEndTime);
+                uibuilder.completed(writeEndTime);
             } else {
-                writeEndTime = nowTime;
+                updatedEndTime = nowTime;
                 if (usageItem.getCompleted() == null) {
-                    usageItem.setCompleted(nowTime);
+                    uibuilder.completed(nowTime);
                 }
             }
 
             if (isNullOrEmpty(usageItem.getAddress())
                     || WebUtils.getClientName(ri.request).length() > usageItem.getAddress().length()) {
-                usageItem.setAddress(WebUtils.getClientName(ri.request));
+                uibuilder.address(WebUtils.getClientName(ri.request));
             }
 
             if (isNullOrEmpty(usageItem.getInterface())) {
-                usageItem.setInterface(ri.appConfig.getAppName());
+                uibuilder._interface(ri.appConfig.getAppName());
             }
 
-            if (isNullOrEmpty(usageItem.getIpaddress())){
-                usageItem.setIpaddress(WebUtils.getClientIp(ri.request));
+            if (isNullOrEmpty(usageItem.getIpaddress())) {
+                uibuilder.ipaddress(WebUtils.getClientIp(ri.request));
             }
 
-            if (isNullOrEmpty(usageItem.getUserident())){
-                usageItem.setUserident(WebUtils.getAuthenticatedUsername(ri.requestHeaders));
+            if (isNullOrEmpty(usageItem.getUserident())) {
+                uibuilder.userident(WebUtils.getAuthenticatedUsername(ri.requestHeaders));
             }
 
+            // Extra
             Extra extra = usageItem.getExtra();
+            Extra.ExtraBuilder exb = new Extra.ExtraBuilder();
             if (extra == null) {
-                extra = new Extra();
-                usageItem.setExtra(extra);
+                extra = exb.build();
+            } else {
+                exb.userAgent(extra.getUserAgent())
+                        .requestUrl(extra.getRequestUrl())
+                        .referer(extra.getReferer())
+                        .backendServer(extra.getBackendServer())
+                        .parent(extra.getParent())
+                        .returnCode(extra.getReturnCode())
+                        .message(extra.getMessage())
+                        .protocol(extra.getProtocol())
+                        .serviceVersion(extra.getServiceVersion())
+                ;
             }
 
-            if (isNullOrEmpty(extra.getUserAgent())){
-                extra.setUserAgent(WebUtils.getUserAgent(ri.request));
+            if (isNullOrEmpty(extra.getUserAgent())) {
+                exb.userAgent(WebUtils.getUserAgent(ri.request));
             }
 
-            if (isNullOrEmpty(extra.getRequestUrl())){
-                extra.setRequestUrl(WebUtils.getUrl(ri.request));
+            if (isNullOrEmpty(extra.getRequestUrl())) {
+                exb.requestUrl(WebUtils.getUrl(ri.request));
             }
 
-            if (isNullOrEmpty(extra.getReferer())){
-                extra.setReferer(WebUtils.getReferer(ri.request));
+            if (isNullOrEmpty(extra.getReferer())) {
+                exb.referer(WebUtils.getReferer(ri.request));
             }
 
             if (isNullOrEmpty(extra.getBackendServer())
                     || WebUtils.getHostname().length() > extra.getBackendServer().length()) {
-                extra.setBackendServer(WebUtils.getHostname());
+                exb.backendServer(WebUtils.getHostname());
             }
 
-            // todo - add parent?
+            // todo - not checking parent
 
-            if (extra.getReturnCode() == null){
-                extra.setReturnCode(httpStatusCode);
+            if (extra.getReturnCode() == null) {
+                exb.returnCode(httpStatusCode);
             }
 
-            // todo - add message?
-
-            if (isNullOrEmpty(extra.getProtocol())){
-                extra.setProtocol(ri.request.getProtocol() + " " + ri.request.getMethod());
-            }
-
-            if (isNullOrEmpty(extra.getServiceVersion())) {
-                extra.setServiceVersion(ri.appConfig.getAppVersion());
-            }
-
+            /*
+            // hang on to it for a while, extraProperty in this form may
+            // now be in dataitem.extra? but exb.message is probably better,
+            // this may only be a WSS feature?
             if ( ! (isNullOrEmpty(extraText))) {
-                // Put extraText in additionalProperites - Use the top level elements
-                // as keys and put remainder of object back into a JSON string
-                try {
+                // Put extraText in additionalProperties - Use the top level elements
+                // as keys and put rem                try {
                     Gson gson = new Gson();
-                    Map<String,Object> map = new HashMap<String,Object>();
-                    map = (Map<String,Object>) gson.fromJson(extraText, map.getClass());
-                    for (String key: map.keySet()) {
+                    Map<String, Object> map = new HashMap<String, Object>();
+                    map = (Map<String, Object>) gson.fromJson(extraText, map.getClass());
+                    for (String key : map.keySet()) {
                         String remaining = gson.toJson(map.get(key));
-                        extra.withAdditionalProperty(key, remaining);
+                        //extra.withAdditionalProperty(key, remaining);
                     }
                 } catch (Exception ex) {
                     // Use extraText as-is when it does not convert to JSON
-                    extra.withAdditionalProperty("extraText_from_WSS", extraText);
+                    //extra.withAdditionalProperty("extraText_from_WSS", extraText);
                 }
             }
+             */
 
+            if (isNullOrEmpty(extra.getMessage()) && ! (isNullOrEmpty(extraText))) {
+                exb.message(extraText);
+            }
+
+            if (isNullOrEmpty(extra.getProtocol())) {
+                exb.protocol(ri.request.getProtocol() + " " + ri.request.getMethod());
+            }
+
+            if (isNullOrEmpty(extra.getServiceVersion())) {
+                exb.serviceVersion(ri.appConfig.getAppVersion());
+            }
+
+            // dataitem
             List<Dataitem> dataItems = usageItem.getDataitem();
+            Dataitem.DataitemBuilder dib = new Dataitem.DataitemBuilder();
             if (dataItems == null) {
                 logger.warn("WARN, unexpected null Dataitem list, will try to fix it for"
-                + "  address: " + usageItem.getAddress() + "   interface: " + usageItem.getInterface());
+                        + "  address: " + usageItem.getAddress() + "   interface: " + usageItem.getInterface());
 
-                Dataitem dataItem = Dataitem.builder().build()
-                        .withBytes(dataSize);
-
-                usageItem.setDataitem(Arrays.asList(dataItem));
+                dib.bytes(dataSize);
+                dataItems = Arrays.asList(dib.build());
             }
 
             // dataItems list must exist here
             // check required fields
-            for (Dataitem dataItem : usageItem.getDataitem()) {
+
+            List<Dataitem> checkedDataItems = new ArrayList<>();
+            for (Dataitem dataItem : dataItems) {
+                dib = new DataitemBuilder();
+                dib.bytes(dataItem.getBytes())
+                        .datacenter(dataItem.getDatacenter())
+                        .product(dataItem.getProduct())
+                        .format(dataItem.getFormat())
+                        .span(dataItem.getSpan())
+                        .extra(dataItem.getExtra())
+                        ;
+
                 if (dataItem.getBytes() <= 0) {
-                    dataItem.setBytes(dataSize);
+                    dib.bytes(dataSize);
                 }
 
                 if (isNullOrEmpty(dataItem.getDatacenter())) {
-                    dataItem.setDatacenter("WSS unknown datacenter");
+                    dib.datacenter("WSS unknown datacenter");
                 }
 
                 if (isNullOrEmpty(dataItem.getProduct())) {
-                    dataItem.setProduct("WSS unknown product");
+                    dib.product("WSS unknown product");
                 }
 
                 if (isNullOrEmpty(dataItem.getFormat())) {
                     try {
                         String requestFormat = ri.getPerRequestFormatTypeKey(ri.getEndpointNameForThisRequest());
-                        dataItem.setFormat(requestFormat);
+                        dib.format(requestFormat);
                     } catch (Exception ex) {
-                        dataItem.setFormat("WSS unknown format");
+                        dib.format("WSS unknown format");
                         logger.warn("Warning, an exception occurred while getting format, ex: " + ex
                                 + "  note: this is unexpected as the original request should have been rejected.");
                     }
                 }
+
+                if (dataItem.getSpan() == null) {
+                    dib.span(updatedStartTime, updatedEndTime);
+                }
+
+                // todo - not checking extra at this time
+
+                checkedDataItems.add(dib.build());
             }
+
+            uibuilder.extra(exb);
+            uibuilder.dataItems(checkedDataItems);
+
+            return uibuilder.build();
         }
     }
 
@@ -462,8 +524,8 @@ public class LoggerUtils {
         if (reportType == LoggingMethod.USAGE_STATS
                 || reportType == LoggingMethod.USAGE_STATS_AND_RABBIT_ASYNC) {
             try {
-                int submitStatus = WssSingleton.usageSubmittalService.report(usageItem);
-                if (204 != submitStatus) {
+                boolean submitStatus = WssSingleton.usageSubmittalService.report(usageItem);
+                if (! submitStatus) {
                     logger.error("Error - USAGE_STATS submit was not 204 it was:: " + submitStatus
                             + "  usageService: " + WssSingleton.usageSubmittalService
                             + "  interface: " + usageItem.getInterface()
