@@ -524,7 +524,7 @@ public class LoggerUtils {
         if (reportType == LoggingMethod.USAGE_STATS
                 || reportType == LoggingMethod.USAGE_STATS_AND_RABBIT_ASYNC) {
             try {
-                boolean submitStatus = WssSingleton.usageSubmittalService.report(usageItem);
+                boolean submitStatus = WssSingleton.usageSubmittalService.submit(usageItem);
                 if (! submitStatus) {
                     logger.error("Error - USAGE_STATS submit was not 204 it was:: " + submitStatus
                             + "  usageService: " + WssSingleton.usageSubmittalService
