@@ -24,16 +24,14 @@ import edu.iris.usage.Dataitem;
 import edu.iris.usage.Dataitem.DataitemBuilder;
 import edu.iris.usage.Extra;
 import edu.iris.usage.UsageItem;
+import edu.iris.usage.http.WebUtils;
 import edu.iris.usage.util.UsageIO;
 import edu.iris.wss.framework.AppConfigurator;
 
 import java.text.SimpleDateFormat;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Date;
-import java.util.List;
+import java.util.*;
 
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
@@ -42,6 +40,8 @@ import edu.iris.wss.framework.RequestInfo;
 import edu.iris.wss.framework.AppConfigurator.LoggingMethod;
 import edu.iris.wss.framework.Util;
 import edu.iris.wss.framework.WssSingleton;
+
+import javax.ws.rs.core.HttpHeaders;
 
 public class LoggerUtils {
 
@@ -238,7 +238,19 @@ public class LoggerUtils {
             }
 
             if (isNullOrEmpty(usageItem.getUserident())) {
-                uibuilder.userident(WebUtils.getAuthenticatedUsername(ri.requestHeaders));
+                List<String> entries;
+                try {
+                    entries = ri.requestHeaders.getRequestHeader("authorization");
+                } catch (Exception e) {
+                    return null;
+                }
+
+                if ((entries == null) || (entries.isEmpty())) {
+                    return null;
+                }
+                String entry = entries.get(0);
+
+                uibuilder.userident(WebUtils.getAuthenticatedUsername(entry));
             }
 
             // Extra
@@ -417,12 +429,26 @@ public class LoggerUtils {
         wsuRabbit.setErrorType(      errorType);
         wsuRabbit.setUserAgent(      WebUtils.getUserAgent(ri.request));
         wsuRabbit.setHttpCode(       httpStatusCode);
-        wsuRabbit.setUserName(       WebUtils.getAuthenticatedUsername(ri.requestHeaders));
+        wsuRabbit.setUserName(       WebUtils.getAuthenticatedUsername(getHttpHeader(ri.requestHeaders, "authorization")));
         wsuRabbit.setExtra(          extraText);
 
         return wsuRabbit;
     }
 
+
+    private static  String getHttpHeader(HttpHeaders httpHeaders, String headerName){
+        Objects.requireNonNull(httpHeaders);
+        Objects.requireNonNull(headerName);
+        try {
+            List<String> entries = httpHeaders.getRequestHeader(headerName);
+            if ((entries == null) || (entries.isEmpty())) {
+                return null;
+            }
+            return entries.get(0);
+        } catch (Exception e) {
+            return null;
+        }
+    }
     /**
      * Create and send message type "wfstat" for Miniseed channel information,
      * it is determined by media type of a request, and is only called when
@@ -459,7 +485,7 @@ public class LoggerUtils {
         wsuRabbit.setErrorType(      errorType);
         wsuRabbit.setUserAgent(      WebUtils.getUserAgent(ri.request));
         wsuRabbit.setHttpCode(       httpStatusCode);
-        wsuRabbit.setUserName(       WebUtils.getAuthenticatedUsername(ri.requestHeaders));
+        wsuRabbit.setUserName(       WebUtils.getAuthenticatedUsername(getHttpHeader(ri.requestHeaders, "authorization")));
         wsuRabbit.setExtra(          extraText);
 
         /**
