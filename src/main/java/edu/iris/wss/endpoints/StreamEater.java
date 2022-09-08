@@ -32,15 +32,21 @@ public class StreamEater implements Runnable  {
 
 	boolean done = false;
 
-    // accumulate stderr content here
-	static final int OUTPUT_SIZE_LIMIT = 95000;
+    // set limits on number of bytes to read
+    // this affectively limits usage-stats JSON string length
+    // to WSS for processing and submital
+    // - 95000 - around 500 dataitems
+    // - 3 MiB - around 17000 dataitems
+	static int OUTPUT_SIZE_LIMIT = 95000;
 	StringBuilder output = new StringBuilder();
 
 	IOException ioExceptionWhileReading = null;
 
     Process process;
 
-	public StreamEater(Process process, InputStream is ) throws Exception {
+	public StreamEater(Process process, InputStream is, int outputSizeLimit ) throws Exception {
+        OUTPUT_SIZE_LIMIT = outputSizeLimit;
+
         this.process = process;
 
 		if (is == null) {
