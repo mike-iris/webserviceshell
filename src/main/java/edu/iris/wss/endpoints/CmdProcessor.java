@@ -160,7 +160,8 @@ public class CmdProcessor extends IrisProcessor {
 		rt.schedule(new killIt(null));
 
 		try {
-			se = new StreamEater(process, process.getErrorStream());
+			se = new StreamEater(process, process.getErrorStream()
+                    , ri.appConfig.getStderrSizeLimit());
 		} catch (Exception e) {
             logger.error("getProcessingResults StreamEater exception: ", e);
 			Util.logAndThrowException(ri, Status.INTERNAL_SERVER_ERROR,

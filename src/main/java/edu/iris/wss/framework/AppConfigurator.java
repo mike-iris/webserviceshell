@@ -53,7 +53,7 @@ import org.apache.log4j.Logger;
 public class AppConfigurator {
 	public static final Logger logger = Logger.getLogger(AppConfigurator.class);
 
-  public static final String wssVersion = "2.5.13-java11-usage-stats-2.1.1";
+  public static final String wssVersion = "2.5.14-java11-usage-stats-2.1.1";
 
 	public static final String wssDigestRealmnameSignature = "wss.digest.realmname";
 
@@ -93,6 +93,7 @@ public class AppConfigurator {
         globals.put(GL_CFGS.loggingConfig.toString(),
               "logging_config_not_specified");
         globals.put(GL_CFGS.sigkillDelay.toString(), 60); // kill delay in seconds
+        globals.put(GL_CFGS.stderrSizeLimit.toString(), 95000); // limits read on JSON string
         globals.put(GL_CFGS.singletonClassName.toString(), null);
 
         // a slight dissonance, endpointClassName will appear as a
@@ -135,7 +136,7 @@ public class AppConfigurator {
     // global configuration parameter names
     public static enum GL_CFGS { appName, version, corsEnabled,
         rootServiceDoc, loggingMethod, loggingConfig, sigkillDelay,
-        jndiUrl, singletonClassName, usageSubmitServiceURL};
+        stderrSizeLimit, jndiUrl, singletonClassName, usageSubmitServiceURL};
 
     // endpoint configuration parameter names
     public static enum EP_CFGS { formatTypes, handlerTimeout,
@@ -312,6 +313,10 @@ public class AppConfigurator {
 
     public int getSigkillDelay() {
         return ((Integer) globals.get(GL_CFGS.sigkillDelay.toString()));
+    }
+
+    public int getStderrSizeLimit() {
+        return ((Integer) globals.get(GL_CFGS.stderrSizeLimit.toString()));
     }
 
     public String getSingletonClassName() {
@@ -724,6 +729,7 @@ public class AppConfigurator {
         loadGlobalParameter(inputProps, globals, GL_CFGS.loggingMethod);
         loadGlobalParameter(inputProps, globals, GL_CFGS.loggingConfig);
         loadGlobalParameter(inputProps, globals, GL_CFGS.sigkillDelay);
+        loadGlobalParameter(inputProps, globals, GL_CFGS.stderrSizeLimit);
         loadGlobalParameter(inputProps, globals, GL_CFGS.singletonClassName);
         loadGlobalParameter(inputProps, globals, GL_CFGS.usageSubmitServiceURL);
 
@@ -1237,6 +1243,7 @@ public class AppConfigurator {
         keyList.add(GL_CFGS.loggingMethod.toString());
         keyList.add(GL_CFGS.loggingConfig.toString());
         keyList.add(GL_CFGS.sigkillDelay.toString());
+        keyList.add(GL_CFGS.stderrSizeLimit.toString());
         keyList.add(GL_CFGS.singletonClassName.toString());
         keyList.add(GL_CFGS.usageSubmitServiceURL.toString());
 
@@ -1326,6 +1333,7 @@ public class AppConfigurator {
         keyList.add(GL_CFGS.loggingMethod.toString());
         keyList.add(GL_CFGS.loggingConfig.toString());
         keyList.add(GL_CFGS.sigkillDelay.toString());
+        keyList.add(GL_CFGS.stderrSizeLimit.toString());
         keyList.add(GL_CFGS.singletonClassName.toString());
         keyList.add(GL_CFGS.usageSubmitServiceURL.toString());
 

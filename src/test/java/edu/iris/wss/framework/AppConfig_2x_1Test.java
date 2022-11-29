@@ -140,7 +140,8 @@ public class AppConfig_2x_1Test {
         assert(appCfg.getRootServiceDoc().equals(
               "file:///earthcube/tomcat-8091-7.0.56/wss_config/intermagnet-2-swaggerindex.html"));
         assert(appCfg.getLoggingType().equals(AppConfigurator.LoggingMethod.LOG4J));
-        assert(appCfg.getSigkillDelay() == 123);
+        assert(appCfg.getSigkillDelay() == 123321);
+        assert(appCfg.getStderrSizeLimit() == 3145728);
         assert(appCfg.getSingletonClassName() == null);
     }
 
