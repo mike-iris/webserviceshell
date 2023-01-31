@@ -143,6 +143,8 @@ public class AppConfig_2x_1Test {
         assert(appCfg.getSigkillDelay() == 123321);
         assert(appCfg.getStderrSizeLimit() == 3145728);
         assert(appCfg.getSingletonClassName() == null);
+        assert(appCfg.getDataCenterName().equals("data_center_in_service_mix1.cfg"));
+        assert(appCfg.getProductName().equals("product_in_service_mix1.cfg"));
     }
 
     @Test

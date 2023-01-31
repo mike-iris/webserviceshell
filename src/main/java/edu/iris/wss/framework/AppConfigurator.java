@@ -53,7 +53,7 @@ import org.apache.log4j.Logger;
 public class AppConfigurator {
 	public static final Logger logger = Logger.getLogger(AppConfigurator.class);
 
-  public static final String wssVersion = "2.5.14-java11-usage-stats-2.1.1";
+  public static final String wssVersion = "2.5.15-usage-stats-2.1.2";
 
 	public static final String wssDigestRealmnameSignature = "wss.digest.realmname";
 
@@ -95,6 +95,8 @@ public class AppConfigurator {
         globals.put(GL_CFGS.sigkillDelay.toString(), 60); // kill delay in seconds
         globals.put(GL_CFGS.stderrSizeLimit.toString(), 95000); // limits read on JSON string
         globals.put(GL_CFGS.singletonClassName.toString(), null);
+        globals.put(GL_CFGS.dataCenterName.toString(), "WSSdataCenterNameNotset");
+        globals.put(GL_CFGS.productName.toString(), "WSSproductNameNotset");
 
         // a slight dissonance, endpointClassName will appear as a
         // string externally, but an instatiated object internally
@@ -136,7 +138,9 @@ public class AppConfigurator {
     // global configuration parameter names
     public static enum GL_CFGS { appName, version, corsEnabled,
         rootServiceDoc, loggingMethod, loggingConfig, sigkillDelay,
-        stderrSizeLimit, jndiUrl, singletonClassName, usageSubmitServiceURL};
+        stderrSizeLimit, jndiUrl, singletonClassName, usageSubmitServiceURL,
+        dataCenterName, productName
+    };
 
     // endpoint configuration parameter names
     public static enum EP_CFGS { formatTypes, handlerTimeout,
@@ -321,6 +325,14 @@ public class AppConfigurator {
 
     public String getSingletonClassName() {
         return (String) globals.get(GL_CFGS.singletonClassName.toString());
+    }
+
+    public String getDataCenterName() {
+        return (String) globals.get(GL_CFGS.dataCenterName.toString());
+    }
+
+    public String getProductName() {
+        return (String) globals.get(GL_CFGS.productName.toString());
     }
 
     public String getWssVersion() {
@@ -732,6 +744,8 @@ public class AppConfigurator {
         loadGlobalParameter(inputProps, globals, GL_CFGS.stderrSizeLimit);
         loadGlobalParameter(inputProps, globals, GL_CFGS.singletonClassName);
         loadGlobalParameter(inputProps, globals, GL_CFGS.usageSubmitServiceURL);
+        loadGlobalParameter(inputProps, globals, GL_CFGS.dataCenterName);
+        loadGlobalParameter(inputProps, globals, GL_CFGS.productName);
 
         Enumeration keys = inputProps.propertyNames();
         while (keys.hasMoreElements()) {
@@ -1246,6 +1260,8 @@ public class AppConfigurator {
         keyList.add(GL_CFGS.stderrSizeLimit.toString());
         keyList.add(GL_CFGS.singletonClassName.toString());
         keyList.add(GL_CFGS.usageSubmitServiceURL.toString());
+        keyList.add(GL_CFGS.dataCenterName.toString());
+        keyList.add(GL_CFGS.productName.toString());
 
         for (String key: keyList) {
             Object value = globals.get(key) != null ? globals.get(key) : "null";
@@ -1336,6 +1352,8 @@ public class AppConfigurator {
         keyList.add(GL_CFGS.stderrSizeLimit.toString());
         keyList.add(GL_CFGS.singletonClassName.toString());
         keyList.add(GL_CFGS.usageSubmitServiceURL.toString());
+        keyList.add(GL_CFGS.dataCenterName.toString());
+        keyList.add(GL_CFGS.productName.toString());
 
         for (String key: keyList) {
             Object value = globals.get(key) != null ? globals.get(key) : "null";

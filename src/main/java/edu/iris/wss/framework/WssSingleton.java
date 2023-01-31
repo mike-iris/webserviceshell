@@ -271,9 +271,9 @@ public class WssSingleton {
             logger.error(msg);
         }
 
-        String dataCenter = "WSS unknown datacenter";
+        String dataCenter = appConfig.getDataCenterName();
         String appName = appConfig.getAppName();
-        String product = "WSS unknown product";
+        String product = appConfig.getProductName();
         String appVersion = appConfig.getAppVersion();
         URI uri = null;
         try {
