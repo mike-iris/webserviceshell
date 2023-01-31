@@ -26,7 +26,7 @@ import edu.iris.wss.framework.RequestInfo;
 import edu.iris.wss.framework.ServiceShellException;
 import edu.iris.wss.framework.WssSingleton;
 import edu.iris.wss.framework.Util;
-import edu.iris.wss.utils.WebUtils;
+import edu.iris.usage.http.WebUtils;
 import java.util.ArrayList;
 import java.util.Map;
 import javax.servlet.ServletContext;
@@ -101,7 +101,9 @@ public class IrisDynamicProvider {
                 }
             }
 
-            String username = WebUtils.getAuthenticatedUsername(ri.requestHeaders);
+
+            //String username = WebUtils.getAuthenticatedUsername(ri.requestHeaders);
+            String username = WebUtils.getAuthenticatedUsername(ri.request);
 		    if (AppConfigurator.isOkString(username)) {
                 ri.statsKeeper.logAuthPost();
             } else {
@@ -109,7 +111,7 @@ public class IrisDynamicProvider {
             }
         } else {
             // NOTE: HEAD is counted here as well as GET (and PUT and DELETE, etc)
-            String username = WebUtils.getAuthenticatedUsername(ri.requestHeaders);
+            String username = WebUtils.getAuthenticatedUsername(ri.request);
 		    if (AppConfigurator.isOkString(username)) {
                 ri.statsKeeper.logAuthGet();
             } else {

@@ -34,7 +34,7 @@ import edu.iris.wss.framework.RequestInfo;
 import edu.iris.wss.framework.WssSingleton;
 import edu.iris.wss.framework.Util;
 import org.apache.log4j.Logger;
-import edu.iris.wss.utils.WebUtils;
+import edu.iris.usage.http.WebUtils;
 import java.net.URI;
 import java.net.URISyntaxException;
 

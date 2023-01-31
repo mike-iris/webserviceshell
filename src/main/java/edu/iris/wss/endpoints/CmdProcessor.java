@@ -47,7 +47,7 @@ import edu.iris.wss.framework.WssSingleton;
 import edu.iris.wss.framework.Util;
 import edu.iris.wss.provider.IrisProcessingResult;
 import edu.iris.wss.provider.IrisProcessor;
-import edu.iris.wss.utils.WebUtils;
+import edu.iris.usage.http.WebUtils;
 import edu.sc.seis.seisFile.mseed.DataHeader;
 import edu.sc.seis.seisFile.mseed.DataRecord;
 import edu.sc.seis.seisFile.mseed.SeedRecord;
@@ -132,7 +132,7 @@ public class CmdProcessor extends IrisProcessor {
             processBuilder.environment().put("PORT", WebUtils.getPort(ri.request));
             processBuilder.environment().put("TOMCATLOGDIR", WebUtils.getTomcatLogDir());
             //
-            String username = WebUtils.getAuthenticatedUsername(ri.requestHeaders);
+            String username = WebUtils.getAuthenticatedUsername(ri.request);
             if (AppConfigurator.isOkString(username)) {
                 processBuilder.environment().put("AUTHENTICATEDUSERNAME", username);
             }

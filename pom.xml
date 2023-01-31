@@ -122,7 +122,7 @@
 		<sc.seis.seisFile>2.0.0</sc.seis.seisFile>
         <dmc_logging.version>1.1.14</dmc_logging.version>
         <hk2.version>2.4.0-b31</hk2.version>
-        <usage_stats_version>2.1.2-SNAPSHOT</usage_stats_version>
+        <usage_stats_version>2.1.2</usage_stats_version>
     </properties>
 
 

@@ -24,7 +24,7 @@ import edu.iris.wss.framework.RequestInfo;
 import edu.iris.wss.framework.Util;
 import edu.iris.wss.provider.IrisProcessingResult;
 import edu.iris.wss.provider.IrisProcessor;
-import edu.iris.wss.utils.WebUtils;
+import edu.iris.usage.http.WebUtils;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.InetAddress;

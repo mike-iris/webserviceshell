@@ -27,7 +27,7 @@ import javax.ws.rs.core.MultivaluedMap;
 import org.apache.log4j.Logger;
 
 import edu.iris.wss.framework.ParamConfigurator.ConfigParam;
-import edu.iris.wss.utils.WebUtils;
+import edu.iris.usage.http.WebUtils;
 import java.io.UnsupportedEncodingException;
 import java.util.Map;
 import java.util.Set;
@@ -81,7 +81,7 @@ public class ParameterTranslator {
 
 		// Special 'username' cli argument will be added if present
 
-		String username = WebUtils.getAuthenticatedUsername(ri.requestHeaders);
+		String username = WebUtils.getAuthenticatedUsername(ri.request);
 		if (AppConfigurator.isOkString(username)) {
 			cmd.add("--" + usernameSignature);
 			cmd.add(username);

@@ -271,11 +271,16 @@ public class WssSingleton {
             logger.error(msg);
         }
 
+        String dataCenter = "WSS unknown datacenter";
+        String appName = appConfig.getAppName();
+        String product = "WSS unknown product";
+        String appVersion = appConfig.getAppVersion();
         URI uri = null;
         try {
             // setup http client usage submittal service
             uri = new URI(appConfig.getUsageSubmitServiceURL());
-            usageSubmittalService = new UsageService(new RestTemplate(), uri);
+            usageSubmittalService = new UsageService(new RestTemplate(), dataCenter,
+                    appName, product, appVersion, uri);
             logger.info("usageService created");
         }  catch (Exception ex) {
             String msg = "----------- Error in usageSubmitServiceURL: " + uri
