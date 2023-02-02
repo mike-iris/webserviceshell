@@ -31,7 +31,12 @@ import edu.iris.wss.framework.AppConfigurator;
 import java.text.SimpleDateFormat;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Date;
+import java.util.List;
+import java.util.Objects;
+import java.util.Enumeration;
 
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
@@ -60,6 +65,13 @@ public class LoggerUtils {
          *
          * prepare final version of usageItem content
          */
+
+        if (usageItem == null) {
+            logger.error("Error - usageItem is null in logUsageItemMessage, possible programmer error");
+            logger.error("Error - usageItem is null in logUsageItemMessage, continuing with default values");
+            usageItem = createDefaultUsageItem(dataSize);
+        }
+
         UsageItem checkedUsageItem = applyRulesToUsageItem(ri, usageItem, appSuffix,
                 dataSize, processTime, null, null,
                 errorType, httpStatusCode, extraText);
@@ -128,6 +140,8 @@ public class LoggerUtils {
             }
         } finally {
             if (usageItem == null) {
+                logger.error("Error - usageItem is null in logUsageStrMessage, possible programmer error");
+                logger.error("Error - usageItem is null in logUsageStrMessage, continuing with default values");
                 usageItem = createDefaultUsageItem(dataSize);
             }
         }
@@ -183,212 +197,203 @@ public class LoggerUtils {
                                               String errorType, Integer httpStatusCode, String extraText) {
 
         if (usageItem == null) {
-            logger.error("Error, programmer error, usageItem should not be null at this point!");
-            return null;
-        } else {
-            ZonedDateTime nowTime = ZonedDateTime.now(ZoneId.of("UTC"));
-
-            // inconvenient semantics for what I need to do, which is quality
-            // check incoming UsageItem data. When UsageItem has no setters, or
-            // the builders have no getters, I do this
-
-            UsageItem.UsageItemBuilder uibuilder = new UsageItem.UsageItemBuilder();
-            uibuilder.version(usageItem.getVersion())
-                    .requestTime(usageItem.getRequestTime())
-                    .completed(usageItem.getCompleted())
-                    .address(usageItem.getAddress())
-                    ._interface(usageItem.getInterface())
-                    .ipaddress(usageItem.getIpaddress())
-                    .userident(usageItem.getUserident())
-                    //.extra(usageItem.getExtra())  // defer setting until after content check
-                    //.dataItem(usageItem.getDataitem())  // defer setting until after content check
-            ;
-
-            ZonedDateTime updatedStartTime = writeStartTime;
-            if (writeStartTime != null) {
-                uibuilder.requestTime(writeStartTime);
-            } else {
-                updatedStartTime = nowTime;
-                if (usageItem.getRequestTime() == null) {
-                    uibuilder.requestTime(nowTime);
-                }
-            }
-
-            ZonedDateTime updatedEndTime = writeStartTime;
-            if (writeEndTime != null) {
-                uibuilder.completed(writeEndTime);
-            } else {
-                updatedEndTime = nowTime;
-                if (usageItem.getCompleted() == null) {
-                    uibuilder.completed(nowTime);
-                }
-            }
-
-            if (isNullOrEmpty(usageItem.getAddress())
-                    || WebUtils.getClientName(ri.request).length() > usageItem.getAddress().length()) {
-                uibuilder.address(WebUtils.getClientName(ri.request));
-            }
-
-            if (isNullOrEmpty(usageItem.getInterface())) {
-                uibuilder._interface(ri.appConfig.getAppName());
-            }
-
-            if (isNullOrEmpty(usageItem.getIpaddress())) {
-                uibuilder.ipaddress(WebUtils.getClientIp(ri.request));
-            }
-
-            if (isNullOrEmpty(usageItem.getUserident())) {
-                List<String> entries;
-                try {
-                    entries = ri.requestHeaders.getRequestHeader("authorization");
-                } catch (Exception e) {
-                    return null;
-                }
-
-                if ((entries == null) || (entries.isEmpty())) {
-                    return null;
-                }
-                String entry = entries.get(0);
-
-                uibuilder.userident(WebUtils.getAuthenticatedUsername(entry));
-            }
-
-            // Extra
-            Extra extra = usageItem.getExtra();
-            Extra.ExtraBuilder exb = new Extra.ExtraBuilder();
-            if (extra == null) {
-                extra = exb.build();
-            } else {
-                exb.userAgent(extra.getUserAgent())
-                        .requestUrl(extra.getRequestUrl())
-                        .referer(extra.getReferer())
-                        .backendServer(extra.getBackendServer())
-                        .parent(extra.getParent())
-                        .returnCode(extra.getReturnCode())
-                        .message(extra.getMessage())
-                        .protocol(extra.getProtocol())
-                        .serviceVersion(extra.getServiceVersion())
-                ;
-            }
-
-            if (isNullOrEmpty(extra.getUserAgent())) {
-                exb.userAgent(WebUtils.getUserAgent(ri.request));
-            }
-
-            if (isNullOrEmpty(extra.getRequestUrl())) {
-                exb.requestUrl(WebUtils.getUrl(ri.request));
-            }
-
-            if (isNullOrEmpty(extra.getReferer())) {
-                exb.referer(WebUtils.getReferer(ri.request));
-            }
-
-            if (isNullOrEmpty(extra.getBackendServer())
-                    || WebUtils.getHostname().length() > extra.getBackendServer().length()) {
-                exb.backendServer(WebUtils.getHostname());
-            }
-
-            // todo - not checking parent
-
-            if (extra.getReturnCode() == null) {
-                exb.returnCode(httpStatusCode);
-            }
-
-            /*
-            // hang on to it for a while, extraProperty in this form may
-            // now be in dataitem.extra? but exb.message is probably better,
-            // this may only be a WSS feature?
-            if ( ! (isNullOrEmpty(extraText))) {
-                // Put extraText in additionalProperties - Use the top level elements
-                // as keys and put rem                try {
-                    Gson gson = new Gson();
-                    Map<String, Object> map = new HashMap<String, Object>();
-                    map = (Map<String, Object>) gson.fromJson(extraText, map.getClass());
-                    for (String key : map.keySet()) {
-                        String remaining = gson.toJson(map.get(key));
-                        //extra.withAdditionalProperty(key, remaining);
-                    }
-                } catch (Exception ex) {
-                    // Use extraText as-is when it does not convert to JSON
-                    //extra.withAdditionalProperty("extraText_from_WSS", extraText);
-                }
-            }
-             */
-
-            if (isNullOrEmpty(extra.getMessage()) && ! (isNullOrEmpty(extraText))) {
-                exb.message(extraText);
-            }
-
-            if (isNullOrEmpty(extra.getProtocol())) {
-                exb.protocol(ri.request.getProtocol() + " " + ri.request.getMethod());
-            }
-
-            if (isNullOrEmpty(extra.getServiceVersion())) {
-                exb.serviceVersion(ri.appConfig.getAppVersion());
-            }
-
-            // dataitem
-            List<Dataitem> dataItems = usageItem.getDataitem();
-            Dataitem.DataitemBuilder dib = new Dataitem.DataitemBuilder();
-            if (dataItems == null) {
-                logger.warn("WARN, unexpected null Dataitem list, will try to fix it for"
-                        + "  address: " + usageItem.getAddress() + "   interface: " + usageItem.getInterface());
-
-                dib.bytes(dataSize);
-                dataItems = Arrays.asList(dib.build());
-            }
-
-            // dataItems list must exist here
-            // check required fields
-
-            List<Dataitem> checkedDataItems = new ArrayList<>();
-            for (Dataitem dataItem : dataItems) {
-                dib = new DataitemBuilder();
-                dib.bytes(dataItem.getBytes())
-                        .datacenter(dataItem.getDatacenter())
-                        .product(dataItem.getProduct())
-                        .format(dataItem.getFormat())
-                        .span(dataItem.getSpan())
-                        .extra(dataItem.getExtra())
-                        ;
-
-                if (dataItem.getBytes() <= 0) {
-                    dib.bytes(dataSize);
-                }
-
-                if (isNullOrEmpty(dataItem.getDatacenter())) {
-                    dib.datacenter("WSS unknown datacenter");
-                }
-
-                if (isNullOrEmpty(dataItem.getProduct())) {
-                    dib.product("WSS unknown product");
-                }
-
-                if (isNullOrEmpty(dataItem.getFormat())) {
-                    try {
-                        String requestFormat = ri.getPerRequestFormatTypeKey(ri.getEndpointNameForThisRequest());
-                        dib.format(requestFormat);
-                    } catch (Exception ex) {
-                        dib.format("WSS unknown format");
-                        logger.warn("Warning, an exception occurred while getting format, ex: " + ex
-                                + "  note: this is unexpected as the original request should have been rejected.");
-                    }
-                }
-
-                if (dataItem.getSpan() == null) {
-                    dib.span(updatedStartTime, updatedEndTime);
-                }
-
-                // todo - not checking extra at this time
-
-                checkedDataItems.add(dib.build());
-            }
-
-            uibuilder.extra(exb);
-            uibuilder.dataItems(checkedDataItems);
-
-            return uibuilder.build();
+            logger.error("Error - usageItem is null in applyRulesToUsageItem, possible programmer error");
+            logger.error("Error - usageItem is null in applyRulesToUsageItem, continuing with default values");
+            usageItem = createDefaultUsageItem(dataSize);
         }
+
+        ZonedDateTime nowTime = ZonedDateTime.now(ZoneId.of("UTC"));
+
+        // inconvenient semantics for what I need to do, which is quality
+        // check incoming UsageItem data. When UsageItem has no setters, or
+        // the builders have no getters, I do this
+
+        UsageItem.UsageItemBuilder uibuilder = new UsageItem.UsageItemBuilder();
+        uibuilder.version(usageItem.getVersion())
+                .requestTime(usageItem.getRequestTime())
+                .completed(usageItem.getCompleted())
+                .address(usageItem.getAddress())
+                ._interface(usageItem.getInterface())
+                .ipaddress(usageItem.getIpaddress())
+                .userident(usageItem.getUserident())
+                //.extra(usageItem.getExtra())  // defer setting until after content check
+                //.dataItem(usageItem.getDataitem())  // defer setting until after content check
+        ;
+
+        ZonedDateTime updatedStartTime = writeStartTime;
+        if (writeStartTime != null) {
+            uibuilder.requestTime(writeStartTime);
+        } else {
+            updatedStartTime = nowTime;
+            if (usageItem.getRequestTime() == null) {
+                uibuilder.requestTime(nowTime);
+            }
+        }
+
+        ZonedDateTime updatedEndTime = writeStartTime;
+        if (writeEndTime != null) {
+            uibuilder.completed(writeEndTime);
+        } else {
+            updatedEndTime = nowTime;
+            if (usageItem.getCompleted() == null) {
+                uibuilder.completed(nowTime);
+            }
+        }
+
+        if (isNullOrEmpty(usageItem.getAddress())
+                || WebUtils.getClientName(ri.request).length() > usageItem.getAddress().length()) {
+            uibuilder.address(WebUtils.getClientName(ri.request));
+        }
+
+        if (isNullOrEmpty(usageItem.getInterface())) {
+            uibuilder._interface(ri.appConfig.getAppName());
+        }
+
+        if (isNullOrEmpty(usageItem.getIpaddress())) {
+            uibuilder.ipaddress(WebUtils.getClientIp(ri.request));
+        }
+
+        if (isNullOrEmpty(usageItem.getUserident())) {
+            // note getAuthenticatedUsername returns null when not found,
+            // which translate to "None" in db
+            uibuilder.userident(WebUtils.getAuthenticatedUsername(ri.request));
+        }
+
+        // Extra
+        Extra extra = usageItem.getExtra();
+        Extra.ExtraBuilder exb = new Extra.ExtraBuilder();
+        if (extra == null) {
+            extra = exb.build();
+        } else {
+            exb.userAgent(extra.getUserAgent())
+                    .requestUrl(extra.getRequestUrl())
+                    .referer(extra.getReferer())
+                    .backendServer(extra.getBackendServer())
+                    .parent(extra.getParent())
+                    .returnCode(extra.getReturnCode())
+                    .message(extra.getMessage())
+                    .protocol(extra.getProtocol())
+                    .serviceVersion(extra.getServiceVersion())
+            ;
+        }
+
+        if (isNullOrEmpty(extra.getUserAgent())) {
+            exb.userAgent(WebUtils.getUserAgent(ri.request));
+        }
+
+        if (isNullOrEmpty(extra.getRequestUrl())) {
+            exb.requestUrl(WebUtils.getUrl(ri.request));
+        }
+
+        if (isNullOrEmpty(extra.getReferer())) {
+            exb.referer(WebUtils.getReferer(ri.request));
+        }
+
+        if (isNullOrEmpty(extra.getBackendServer())
+                || WebUtils.getHostname().length() > extra.getBackendServer().length()) {
+            exb.backendServer(WebUtils.getHostname());
+        }
+
+        // todo - not checking parent
+
+        if (extra.getReturnCode() == null) {
+            exb.returnCode(httpStatusCode);
+        }
+
+        /*
+        // hang on to it for a while, extraProperty in this form may
+        // now be in dataitem.extra? but exb.message is probably better,
+        // this may only be a WSS feature?
+        if ( ! (isNullOrEmpty(extraText))) {
+            // Put extraText in additionalProperties - Use the top level elements
+            // as keys and put rem                try {
+                Gson gson = new Gson();
+                Map<String, Object> map = new HashMap<String, Object>();
+                map = (Map<String, Object>) gson.fromJson(extraText, map.getClass());
+                for (String key : map.keySet()) {
+                    String remaining = gson.toJson(map.get(key));
+                    //extra.withAdditionalProperty(key, remaining);
+                }
+            } catch (Exception ex) {
+                // Use extraText as-is when it does not convert to JSON
+                //extra.withAdditionalProperty("extraText_from_WSS", extraText);
+            }
+        }
+         */
+
+        if (isNullOrEmpty(extra.getMessage()) && ! (isNullOrEmpty(extraText))) {
+            exb.message(extraText);
+        }
+
+        if (isNullOrEmpty(extra.getProtocol())) {
+            exb.protocol(ri.request.getProtocol() + " " + ri.request.getMethod());
+        }
+
+        if (isNullOrEmpty(extra.getServiceVersion())) {
+            exb.serviceVersion(ri.appConfig.getAppVersion());
+        }
+
+        // dataitem
+        List<Dataitem> dataItems = usageItem.getDataitem();
+        Dataitem.DataitemBuilder dib = new Dataitem.DataitemBuilder();
+        if (dataItems == null) {
+            logger.warn("WARN, unexpected null Dataitem list, will try to fix it for"
+                    + "  address: " + usageItem.getAddress() + "   interface: " + usageItem.getInterface());
+
+            dib.bytes(dataSize);
+            dataItems = Arrays.asList(dib.build());
+        }
+
+        // dataItems list must exist here
+        // check required fields
+
+        List<Dataitem> checkedDataItems = new ArrayList<>();
+        for (Dataitem dataItem : dataItems) {
+            dib = new DataitemBuilder();
+            dib.bytes(dataItem.getBytes())
+                    .datacenter(dataItem.getDatacenter())
+                    .product(dataItem.getProduct())
+                    .format(dataItem.getFormat())
+                    .span(dataItem.getSpan())
+                    .extra(dataItem.getExtra())
+                    ;
+
+            if (dataItem.getBytes() <= 0) {
+                dib.bytes(dataSize);
+            }
+
+            if (isNullOrEmpty(dataItem.getDatacenter())) {
+                dib.datacenter(ri.appConfig.getDataCenterName());
+            }
+
+            if (isNullOrEmpty(dataItem.getProduct())) {
+                dib.product(ri.appConfig.getProductName());
+            }
+
+            if (isNullOrEmpty(dataItem.getFormat())) {
+                try {
+                    String requestFormat = ri.getPerRequestFormatTypeKey(ri.getEndpointNameForThisRequest());
+                    dib.format(requestFormat);
+                } catch (Exception ex) {
+                    dib.format("WSS unknown format");
+                    logger.warn("Warning, an exception occurred while getting format, ex: " + ex
+                            + "  note: this is unexpected as the original request should have been rejected.");
+                }
+            }
+
+            if (dataItem.getSpan() == null) {
+                dib.span(updatedStartTime, updatedEndTime);
+            }
+
+            // todo - not checking extra at this time
+
+            checkedDataItems.add(dib.build());
+        }
+
+        uibuilder.extra(exb);
+        uibuilder.dataItems(checkedDataItems);
+
+        return uibuilder.build();
     }
 
     /**
